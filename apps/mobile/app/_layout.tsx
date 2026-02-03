@@ -9,6 +9,7 @@ import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { ConvexReactClient } from "convex/react";
 import { tokenCache } from "../lib/cache";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!);
 
@@ -31,9 +32,9 @@ const LumiTheme = {
   ...DarkTheme,
   colors: {
     ...DarkTheme.colors,
-    background: "#1A1B41", // Twilight Indigo
+    background: "#030014", // Deep Midnight
     primary: "#BAF2BB", // Bioluminescent Teal
-    card: "#24255C",
+    card: "rgba(255, 255, 255, 0.05)", // Glassmorphic
     text: "#FFFFFF",
     border: "rgba(255, 255, 255, 0.1)",
     notification: "#F4E04D", // Candlelight Gold
@@ -64,12 +65,14 @@ export default function RootLayout() {
   return (
     <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} tokenCache={tokenCache}>
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-        <ThemeProvider value={LumiTheme}>
-          <Stack>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="modal" options={{ presentation: "modal" }} />
-          </Stack>
-        </ThemeProvider>
+        <SafeAreaProvider>
+          <ThemeProvider value={LumiTheme}>
+            <Stack>
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="modal" options={{ presentation: "modal" }} />
+            </Stack>
+          </ThemeProvider>
+        </SafeAreaProvider>
       </ConvexProviderWithClerk>
     </ClerkProvider>
   );

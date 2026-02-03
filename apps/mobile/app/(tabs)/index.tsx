@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { StyleSheet, Pressable, Dimensions, Platform } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Text, View } from "@/components/Themed";
 import { Audio } from "expo-av";
 import { useMutation, useAction } from "convex/react";
@@ -134,12 +135,12 @@ export default function RecordScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <MotiView
         from={{ opacity: 0.1, scale: 0.8 }}
         animate={{ opacity: 0.2, scale: 1.2 }}
         transition={{ type: "timing", duration: 4000, loop: true }}
-        style={[styles.orb, { top: -100, right: -100, backgroundColor: colors.primary }]}
+        style={[styles.orb, { top: -150, right: -150, backgroundColor: colors.primary }]}
       />
 
       <SignedIn>
@@ -209,7 +210,7 @@ export default function RecordScreen() {
           </View>
         </View>
       </SignedOut>
-    </View>
+    </SafeAreaView>
   );
 }
 
