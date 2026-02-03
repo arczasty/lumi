@@ -8,6 +8,9 @@
     ],
     "scripts": {
         "dev": "turbo dev",
+        "dev:mobile": "npm run start --workspace=apps/mobile",
+        "dev:web": "npm run dev --workspace=apps/web",
+        "dev:convex": "npx convex dev",
         "build": "turbo build",
         "lint": "turbo lint",
         "typecheck": "turbo typecheck",
@@ -16,8 +19,13 @@
         "check-all": "npm run lint && npm run typecheck && npm run audit"
     },
     "devDependencies": {
-        "turbo": "^2.0.0",
+        "@types/node": "^25.2.0",
         "prettier": "^3.0.0",
+        "turbo": "^2.0.0",
         "typescript": "^5.0.0"
+    },
+    "dependencies": {
+        "convex": "^1.31.7",
+        "zod": "^4.3.6"
     }
 }

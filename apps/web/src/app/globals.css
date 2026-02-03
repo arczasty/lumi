@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+:root {
+  --background: #030014;
+  --foreground: #ffffff;
+  --primary: #BAF2BB;
+  --accent: #F4E04D;
+  --surface: rgba(255, 255, 255, 0.05);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-accent: var(--accent);
+  --color-surface: var(--surface);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-white/5 border border-white/10 backdrop-blur-xl;
+  }
+}

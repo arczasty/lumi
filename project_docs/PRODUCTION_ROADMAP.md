@@ -1,66 +1,78 @@
 # 🚀 PRODUCTION ROADMAP: LUMI
-    
-    This document outlines the steps required to move the "Lumi" application from concept to production.
-    
-    ## 1. 🛡 Security & Authentication
-    
-    **Current Status:**
-    Pending implementation.
-    
-    **Action Plan:**
-    
-    - [ ] **Setup Project**: Initialize Firebase Project (Console).
-    - [ ] **Database Schema**:
-      - Enable Firestore (Document DB) for Dream Logs.
-      - Enable Firebase Data Connect (Cloud SQL) for Vector Search.
-    - [ ] **Guest Onboarding**:
-      - Implement Firebase Anonymous Auth.
-      - Build `linkWithCredential` flow for permanent account conversion.
-    - [ ] **Privacy**: Configure Firestore Security Rules.
-    
-    ## 2. 🧩 Core Logic (Firebase Genkit)
-    
-    **Current Status:**
-    Pending implementation.
-    
-    **Action Plan:**
-    
-    - [ ] **AI Orchestration (Genkit)**:
-      - Initialize Genkit in Firebase Functions (TypeScript).
-      - Configure Vertex AI Model Garden (Gemini 1.5 Flash + Claude 3.5 Sonnet).
-    - [ ] **Vector Search (RAG)**:
-      - Define `Dream` schema in `schema.gql` (Firebase Data Connect).
-      - Implement standard similarity search for "Memory" feature.
-    - [ ] **Voice Processing**:
-      - Integrate Deepgram/Whisper for "Whisper Mode" transcription.
-      - (Premium) Integrate ElevenLabs for audio playback.
-    - [ ] **Image Generation**:
-      - Create `generate-dream-art` function (Imagen/Midjourney API) with "Studio Ghibli" system prompts.
-    
-    ## 3. 📱 Mobile Application (Flutter)
-    
-    **Current Status:**
-    Ready for development.
-    
-    **Action Plan:**
-    
-    - [ ] **Initialize App**: `flutter create apps/lumi_mobile` (using Antigravity approach).
-    - [ ] **Dependencies**: Add `flutter_riverpod`, `firebase_core`, `rive`.
-    - [ ] **Design System**: Apply "Twilight Garden" palette (`#1A1B41`, `#BAF2BB`, `#F4E04D`).
-    - [ ] **Lumi Mascot**:
-      - Load `lumi.riv` asset.
-      - Map StateMachine inputs to Riverpod providers.
-    - [ ] **Core Flows**:
-      - **Onboarding**: Guest entry -> First Dream -> Teaser -> Signup.
-      - **Journaling**: "Tap to Record" full-screen gesture (Whisper Mode).
-    
-    ## 4. ⚙️ Operations & Infrastructure
-    
-    **Current Status:**
-    Pending setup.
-    
-    **Action Plan:**
-    
-    - [ ] **CI/CD**: Set up EAS Build and GitHub Actions.
-    - [ ] **Backups**: Configure Point-in-Time Recovery.
-    - [ ] **Subscription**: Integrate RevenueCat for "Inner Circle" tier management.
+
+This document outlines the steps required to move the "Lumi" application from concept to production.
+
+## 1. 🛡 Security & Authentication
+
+**Current Status:**
+✅ Implemented (Mobile & Web)
+
+**Action Plan:**
+
+- [x] **Setup Project**: Initialize Convex Backend & Clerk Auth.
+- [x] **Database Schema**:
+  - `dreams` table with vector index support (ready for RAG).
+  - `users` identity management via Clerk.
+- [x] **Auth Flow**:
+  - Mobile: Clerk OAuth (Google) with SecureStore cache.
+  - Web: Clerk Middleware + Next.js App Router protection.
+- [x] **Privacy**: Row Level Security (RLS) via Convex authorization.
+
+## 2. 🧩 Core Logic (Convex + Gemini)
+
+**Current Status:**
+beta (Voice & Analysis Active)
+
+**Action Plan:**
+
+- [x] **AI Orchestration**:
+  - Convex Action `ai:transcribeAndAnalyze` implemented.
+  - Model: Gemini 1.5 Flash (via OpenRouter) for fast multimodal analysis.
+- [ ] **Vector Search (RAG)**:
+  - Add vector embedding field to `dreams` table.
+  - Implement similarity search for "Recurring Themes/Symbols".
+- [x] **Voice Processing**:
+  - Direct audio upload to Convex Storage.
+  - Gemini Native Audio Transcription (Multimodal).
+- [ ] **Image Generation**:
+  - Implement `generate-dream-art` action (Imagen/Midjourney API).
+
+## 3. 📱 Mobile Application (React Native / Expo)
+
+**Current Status:**
+MVP Complete (Migration from Flutter finished)
+
+**Action Plan:**
+
+- [x] **Initialize App**: Migrated to Expo Router + TypeScript.
+- [x] **Dependencies**: `expo-av` (Audio), `skia` (Graphics), `clerk` (Auth).
+- [x] **Design System**: "Bioluminescent" Dark Mode (`#030014`).
+- [x] **Lumi Mascot**:
+  - Rebuilt using `@shopify/react-native-skia`.
+  - Reactive animations (Breathing, Listening, Thinking).
+- [x] **Core Flows**:
+  - **Record**: "Hold to Whisper" -> Instant Analysis.
+  - **Journal**: Infinite scroll of analyzed dreams with sentiment badges.
+
+## 4. 🌐 Web Application (Next.js)
+
+**Current Status:**
+MVP Complete
+
+**Action Plan:**
+
+- [x] **Initialize App**: Next.js 14+ (App Router).
+- [x] **Dashboard**: Real-time view of `dreams` query.
+- [x] **Landing Page**: Premium "OS for Subconscious" marketing page.
+- [x] **Monorepo**: Integrated into Turbo repo structure (`dev:web`, `dev:mobile`).
+
+## 5. ⚙️ Operations & Infrastructure
+
+**Current Status:**
+Pending Store Prep
+
+**Action Plan:**
+
+- [ ] **CI/CD**: Set up EAS Build.
+- [ ] **Assets**: Generate App Icons/Splashes (Neuro Orchestrator).
+- [ ] **Subscription**: Integrate RevenueCat for "Inner Circle" tier management.
