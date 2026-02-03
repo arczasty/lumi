@@ -10,6 +10,7 @@ import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { ConvexReactClient } from "convex/react";
 import { tokenCache } from "../lib/cache";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { LumiLoader } from "@/components/SanctuaryUI/LumiLoader";
 
 const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!);
 
@@ -59,7 +60,7 @@ export default function RootLayout() {
   }, [loaded]);
 
   if (!loaded) {
-    return null;
+    return <LumiLoader />;
   }
 
   return (
