@@ -13,7 +13,6 @@ export const saveDream = mutation({
         sentiment: v.optional(v.string()),
         symbols: v.optional(v.array(v.string())),
         imageUrl: v.optional(v.string()),
-        audioStorageId: v.optional(v.string()), // Convex storage ID
         createdAt: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
@@ -42,5 +41,26 @@ export const getDreamById = query({
     args: { id: v.id("dreams") },
     handler: async (ctx, args) => {
         return await ctx.db.get(args.id);
+    },
+});
+
+export const updateDream = mutation({
+    args: {
+        id: v.id("dreams"),
+        text: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const { id, text } = args;
+        await ctx.db.patch(id, { text });
+        return id;
+    },
+});
+
+export const deleteDream = mutation({
+    args: {
+        id: v.id("dreams"),
+    },
+    handler: async (ctx, args) => {
+        await ctx.db.delete(args.id);
     },
 });

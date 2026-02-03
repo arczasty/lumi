@@ -13,6 +13,8 @@ import { LucideSettings, LucideSparkles, LucideSend, LucideX } from "lucide-reac
 import { useRouter } from "expo-router";
 import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
+import { showErrorToast, showSuccessToast } from "@/lib/toast";
+import * as Haptics from "expo-haptics";
 
 const { width } = Dimensions.get("window");
 
@@ -27,9 +29,12 @@ export default function RecordScreen() {
 
   const saveDream = useMutation(api.dreams.saveDream);
   const analyzeDream = useAction(api.ai.analyzeDream);
+  const generateDreamImage = useAction(api.ai.generateDreamImage);
 
   async function submitDream() {
     if (!dreamText.trim()) return;
+
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     Keyboard.dismiss();
     setStatus("analyzing");
 
@@ -40,22 +45,30 @@ export default function RecordScreen() {
         text: dreamText,
       });
 
-      // 2. Trigger Analysis
-      await analyzeDream({
-        dreamId,
-        text: dreamText
+      // 2. Trigger Analysis and Image Generation in parallel (don't wait)
+      Promise.all([
+        analyzeDream({
+          dreamId,
+          text: dreamText
+        }),
+        generateDreamImage({
+          dreamId,
+          dreamText: dreamText
+        })
+      ]).catch(err => {
+        showErrorToast("Dream analysis failed, but your dream was saved");
       });
 
-      // 3. Navigate
+      // 3. Navigate immediately (analysis & image gen continue in background)
       router.push(`/dream/${dreamId}`);
+      showSuccessToast("Dream captured in the sanctuary");
 
       // Reset
       setDreamText("");
       setStatus("idle");
     } catch (e) {
-      console.error("Submission failed", e);
+      showErrorToast("Failed to save dream. Please try again.");
       setStatus("idle");
-      // TODO: Show toast
     }
   }
 
@@ -196,11 +209,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 22,
     color: '#fff',
-    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
+    fontFamily: 'Playfair-SemiBold',
+    letterSpacing: 1,
   },
   actionButton: {
     padding: 8,
@@ -220,14 +232,13 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   promptText: {
-    fontSize: 24,
-    fontWeight: "600",
+    fontSize: 26,
     color: "#fff",
-    fontFamily: Platform.OS === "ios" ? "Georgia" : "serif",
+    fontFamily: "Playfair",
     letterSpacing: 0.5,
     marginBottom: 40,
     textAlign: 'center',
-    opacity: 0.8,
+    opacity: 0.9,
   },
   inputContainer: {
     width: '100%',
@@ -242,11 +253,12 @@ const styles = StyleSheet.create({
   },
   textInput: {
     padding: 24,
-    fontSize: 18,
+    fontSize: 17,
     lineHeight: 28,
     minHeight: 150,
     maxHeight: 300,
     textAlignVertical: 'top',
+    fontFamily: 'Inter',
   },
   inputActions: {
     flexDirection: 'row',

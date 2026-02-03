@@ -1,7 +1,6 @@
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { DarkTheme, ThemeProvider } from "@react-navigation/native";
-import { useFonts } from "expo-font";
-import { Stack } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import "react-native-reanimated";
@@ -11,6 +10,19 @@ import { ConvexReactClient } from "convex/react";
 import { tokenCache } from "../lib/cache";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { LumiLoader } from "@/components/SanctuaryUI/LumiLoader";
+import Toast from "react-native-toast-message";
+import { toastConfig } from "@/components/ToastConfig";
+
+// Google Fonts via Expo packages
+import {
+  useFonts,
+  PlayfairDisplay_400Regular,
+  PlayfairDisplay_600SemiBold,
+} from "@expo-google-fonts/playfair-display";
+import {
+  Inter_400Regular,
+  Inter_500Medium,
+} from "@expo-google-fonts/inter";
 
 const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!);
 
@@ -42,9 +54,55 @@ const LumiTheme = {
   },
 };
 
+function RootLayoutNav() {
+  const { isLoaded, isSignedIn } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoaded) return;
+
+    const inAuthGroup = segments[0] === "(tabs)";
+
+    // For MVP: Allow guest access, but you can enable this later for auth requirement
+    // Uncomment below to require authentication:
+    /*
+    if (isSignedIn && !inAuthGroup) {
+      router.replace("/(tabs)");
+    } else if (!isSignedIn && inAuthGroup) {
+      router.replace("/onboarding");
+    }
+    */
+  }, [isLoaded, isSignedIn, segments]);
+
+  if (!isLoaded) {
+    return <LumiLoader />;
+  }
+
+  return (
+    <>
+      <ThemeProvider value={LumiTheme}>
+        <Stack>
+          <Stack.Screen name="onboarding/index" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="modal" options={{ presentation: "modal" }} />
+          <Stack.Screen name="dream/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="settings/index" options={{ headerShown: false }} />
+        </Stack>
+      </ThemeProvider>
+      <Toast config={toastConfig} />
+    </>
+  );
+}
+
 export default function RootLayout() {
   const [loaded, error] = useFonts({
-    SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
+    // Premium Google Fonts
+    "Playfair": PlayfairDisplay_400Regular,
+    "Playfair-SemiBold": PlayfairDisplay_600SemiBold,
+    "Inter": Inter_400Regular,
+    "Inter-Medium": Inter_500Medium,
+    // Icons
     ...FontAwesome.font,
   });
 
@@ -67,12 +125,7 @@ export default function RootLayout() {
     <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} tokenCache={tokenCache}>
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
         <SafeAreaProvider>
-          <ThemeProvider value={LumiTheme}>
-            <Stack>
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="modal" options={{ presentation: "modal" }} />
-            </Stack>
-          </ThemeProvider>
+          <RootLayoutNav />
         </SafeAreaProvider>
       </ConvexProviderWithClerk>
     </ClerkProvider>

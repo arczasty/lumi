@@ -1,65 +1,102 @@
 import React from "react";
-import { StyleSheet, FlatList, Dimensions, Platform } from "react-native";
+import { StyleSheet, FlatList, Dimensions, Platform, Pressable } from "react-native";
 import { Text, View } from "@/components/Themed";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "@clerk/clerk-expo";
 import { useTheme } from "@react-navigation/native";
 import { MotiView } from "moti";
-import { LucideBookOpen, LucideCalendar, LucideSparkles } from "lucide-react-native";
+import { LucideBookOpen, LucideCalendar, LucideSparkles, LucideImage, LucidePlus } from "lucide-react-native";
+import { Image } from "expo-image";
+import { useRouter } from "expo-router";
+import { DreamListSkeleton } from "@/components/LoadingSkeleton";
+import { getSentimentColor } from "@/utils/colors";
+import { LumiMascot } from "@/components/LumiMascot";
+import * as Haptics from "expo-haptics";
 
 const { width } = Dimensions.get("window");
 
 export default function JournalScreen() {
   const { colors } = useTheme();
   const { userId } = useAuth();
+  const router = useRouter();
   const dreams = useQuery(api.dreams.getDreams, userId ? { userId } : "skip");
 
-  const renderDreamItem = ({ item, index }: { item: any; index: number }) => (
-    <MotiView
-      from={{ opacity: 0, translateY: 20 }}
-      animate={{ opacity: 1, translateY: 0 }}
-      transition={{ type: "timing", duration: 500, delay: index * 100 }}
-      style={[styles.dreamCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-    >
-      <View style={styles.cardHeader}>
-        <View style={styles.dateContainer}>
-          <LucideCalendar size={14} color={colors.text} opacity={0.5} />
-          <Text style={[styles.dateText, { color: colors.text }]}>
-            {new Date(item.createdAt).toLocaleDateString()}
-          </Text>
-        </View>
-        {item.sentiment && (
-          <View style={[styles.sentimentBadge, { backgroundColor: colors.primary + "20" }]}>
-            <Text style={[styles.sentimentText, { color: colors.primary }]}>{item.sentiment}</Text>
+  const handleCardPress = (dreamId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push(`/dream/${dreamId}`);
+  };
+
+  const renderDreamItem = ({ item, index }: { item: any; index: number }) => {
+    const sentimentColors = getSentimentColor(item.sentiment);
+
+    return (
+      <Pressable onPress={() => handleCardPress(item._id)}>
+        <MotiView
+          from={{ opacity: 0, translateY: 20, scale: 0.95 }}
+          animate={{ opacity: 1, translateY: 0, scale: 1 }}
+          transition={{ type: "spring", duration: 600, delay: index * 80 }}
+          style={[styles.dreamCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+        >
+        {/* Dream Image */}
+        {item.imageUrl ? (
+          <View style={styles.imageContainer}>
+            <Image
+              source={{ uri: item.imageUrl }}
+              style={styles.dreamImage}
+              contentFit="cover"
+              transition={300}
+            />
+          </View>
+        ) : (
+          <View style={[styles.imageContainer, styles.imagePlaceholder, { backgroundColor: colors.border }]}>
+            <LucideImage size={32} color={colors.text} opacity={0.2} />
+            <Text style={[styles.placeholderText, { color: colors.text }]}>
+              Generating artwork...
+            </Text>
           </View>
         )}
-      </View>
 
-      <Text style={[styles.dreamText, { color: colors.text }]} numberOfLines={3}>
-        {item.text || "Lumi is weaving your patterns..."}
-      </Text>
-
-      {item.symbols && item.symbols.length > 0 && (
-        <View style={styles.symbolContainer}>
-          {item.symbols.map((symbol: string, i: number) => (
-            <View key={i} style={[styles.symbolBadge, { backgroundColor: colors.notification + "20" }]}>
-              <Text style={[styles.symbolText, { color: colors.notification }]}>{symbol}</Text>
+        <View style={styles.cardHeader}>
+          <View style={styles.dateContainer}>
+            <LucideCalendar size={14} color={colors.text} opacity={0.5} />
+            <Text style={[styles.dateText, { color: colors.text }]}>
+              {new Date(item.createdAt).toLocaleDateString()}
+            </Text>
+          </View>
+          {item.sentiment && (
+            <View style={[styles.sentimentBadge, { backgroundColor: sentimentColors.bg }]}>
+              <Text style={[styles.sentimentText, { color: sentimentColors.text }]}>{item.sentiment}</Text>
             </View>
-          ))}
+          )}
         </View>
-      )}
 
-      {item.interpretation && (
-        <View style={[styles.interpretationContainer, { borderTopColor: colors.border }]}>
-          <LucideSparkles size={16} color={colors.primary} />
-          <Text style={[styles.interpretationText, { color: colors.text }]} numberOfLines={2}>
-            {item.interpretation}
-          </Text>
-        </View>
-      )}
-    </MotiView>
-  );
+        <Text style={[styles.dreamText, { color: colors.text }]} numberOfLines={3}>
+          {item.text || "Lumi is weaving your patterns..."}
+        </Text>
+
+        {item.symbols && item.symbols.length > 0 && (
+          <View style={styles.symbolContainer}>
+            {item.symbols.map((symbol: string, i: number) => (
+              <View key={i} style={[styles.symbolBadge, { backgroundColor: colors.notification + "20" }]}>
+                <Text style={[styles.symbolText, { color: colors.notification }]}>{symbol}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {item.interpretation && (
+          <View style={[styles.interpretationContainer, { borderTopColor: colors.border }]}>
+            <LucideSparkles size={16} color={colors.primary} />
+            <Text style={[styles.interpretationText, { color: colors.text }]} numberOfLines={2}>
+              {item.interpretation}
+            </Text>
+          </View>
+        )}
+        </MotiView>
+      </Pressable>
+    );
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -71,15 +108,47 @@ export default function JournalScreen() {
       </View>
 
       {!dreams ? (
-        <View style={styles.emptyContainer}>
-          <LucideBookOpen size={48} color={colors.primary} opacity={0.2} />
-          <Text style={[styles.emptyText, { color: colors.text }]}>Consulting the stars...</Text>
+        <View style={styles.listContent}>
+          <DreamListSkeleton count={3} />
         </View>
       ) : dreams.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <LucideBookOpen size={48} color={colors.primary} opacity={0.2} />
-          <Text style={[styles.emptyText, { color: colors.text }]}>Your journal is a blank page.</Text>
-          <Text style={[styles.emptySubText, { color: colors.text }]}>Record your first dream to begin.</Text>
+          <MotiView
+            from={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: "spring", duration: 800 }}
+            style={styles.emptyMascotContainer}
+          >
+            <LumiMascot isListening={false} amplitude={0} />
+          </MotiView>
+          <MotiView
+            from={{ opacity: 0, translateY: 20 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: "timing", duration: 600, delay: 300 }}
+          >
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>
+              Your Sanctuary Awaits
+            </Text>
+            <Text style={[styles.emptyText, { color: colors.text }]}>
+              Begin your journey with Lumi by recording your first dream
+            </Text>
+          </MotiView>
+          <MotiView
+            from={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: "spring", duration: 500, delay: 600 }}
+          >
+            <Pressable
+              style={[styles.ctaButton, { backgroundColor: "#BAF2BB" }]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                router.push("/(tabs)");
+              }}
+            >
+              <LucidePlus size={20} color="#030014" />
+              <Text style={styles.ctaButtonText}>Record Your First Dream</Text>
+            </Pressable>
+          </MotiView>
         </View>
       ) : (
         <FlatList
@@ -120,10 +189,30 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   dreamCard: {
-    padding: 20,
+    padding: 0,
     borderRadius: 24,
     marginBottom: 16,
     borderWidth: 1,
+    overflow: 'hidden',
+  },
+  imageContainer: {
+    width: '100%',
+    height: 200,
+    backgroundColor: '#1A1B41',
+  },
+  dreamImage: {
+    width: '100%',
+    height: '100%',
+  },
+  imagePlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  placeholderText: {
+    marginTop: 8,
+    fontSize: 12,
+    opacity: 0.5,
+    fontStyle: 'italic',
   },
   cardHeader: {
     flexDirection: "row",
@@ -131,6 +220,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 16,
     backgroundColor: "transparent",
+    paddingHorizontal: 20,
+    paddingTop: 16,
   },
   dateContainer: {
     flexDirection: "row",
@@ -156,6 +247,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
     marginBottom: 16,
+    paddingHorizontal: 20,
   },
   symbolContainer: {
     flexDirection: "row",
@@ -163,6 +255,7 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 16,
     backgroundColor: "transparent",
+    paddingHorizontal: 20,
   },
   symbolBadge: {
     paddingHorizontal: 10,
@@ -177,8 +270,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingTop: 16,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
     borderTopWidth: 1,
     backgroundColor: "transparent",
+    marginHorizontal: 20,
   },
   interpretationText: {
     fontSize: 13,
@@ -192,17 +288,37 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingBottom: 100,
+    paddingHorizontal: 40,
     backgroundColor: "transparent",
   },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginTop: 20,
-    opacity: 0.6,
+  emptyMascotContainer: {
+    marginBottom: 24,
   },
-  emptySubText: {
-    fontSize: 14,
-    marginTop: 8,
-    opacity: 0.4,
+  emptyTitle: {
+    fontSize: 28,
+    fontWeight: "bold",
+    fontFamily: Platform.OS === "ios" ? "Georgia" : "serif",
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  emptyText: {
+    fontSize: 16,
+    textAlign: "center",
+    opacity: 0.6,
+    lineHeight: 24,
+    marginBottom: 32,
+  },
+  ctaButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 24,
+  },
+  ctaButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#030014",
   },
 });

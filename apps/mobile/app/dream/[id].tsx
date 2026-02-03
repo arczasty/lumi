@@ -1,23 +1,214 @@
-import React from "react";
-import { StyleSheet, Dimensions, Platform, ScrollView, ActivityIndicator } from "react-native";
+import React, { useState } from "react";
+import { StyleSheet, Dimensions, Platform, ScrollView, ActivityIndicator, Share, Alert, Modal, TextInput } from "react-native";
 import { Text, View } from "@/components/Themed";
 import { Link, useRouter, useLocalSearchParams } from "expo-router";
 import { MotiView } from "moti";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LucideArrowLeft, LucideShare, LucideSparkles, LucideMoon } from "lucide-react-native";
+import { LucideArrowLeft, LucideShare, LucideSparkles, LucideMoon, LucideEdit3, LucideTrash2, LucideX, LucideCheck, LucideImage } from "lucide-react-native";
 import { Pressable } from "react-native";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import * as Sharing from 'expo-sharing';
+import Toast from "react-native-toast-message";
+import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
+import { getSentimentColor } from "@/utils/colors";
+import { LumiMascot } from "@/components/LumiMascot";
+import { LumiLoader } from "@/components/SanctuaryUI/LumiLoader";
+import { showSuccessToast, showErrorToast } from "@/lib/toast";
 
 export default function DreamDetailScreen() {
     const router = useRouter();
     const { id } = useLocalSearchParams();
+    const [isSharing, setIsSharing] = useState(false);
+    const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+    const [editedText, setEditedText] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Fetch Real Data
+    // Convex hooks
     const dream = useQuery(api.dreams.getDreamById, {
         id: id as Id<"dreams">
     });
+    const updateDream = useMutation(api.dreams.updateDream);
+    const deleteDream = useMutation(api.dreams.deleteDream);
+    const analyzeDream = useAction(api.ai.analyzeDream);
+
+    // Handle Edit
+    const handleEditPress = () => {
+        if (dream) {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            setEditedText(dream.text);
+            setIsEditModalVisible(true);
+        }
+    };
+
+    const handleSaveEdit = async () => {
+        if (!dream || !editedText.trim()) {
+            Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'Dream text cannot be empty',
+            });
+            return;
+        }
+
+        try {
+            setIsSubmitting(true);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+            // Update the dream
+            await updateDream({
+                id: dream._id,
+                text: editedText.trim(),
+            });
+
+            setIsEditModalVisible(false);
+
+            // Ask if user wants to re-analyze
+            Alert.alert(
+                "Re-analyze Dream?",
+                "Would you like Lumi to analyze your edited dream?",
+                [
+                    {
+                        text: "No",
+                        style: "cancel",
+                        onPress: () => {
+                            Toast.show({
+                                type: 'success',
+                                text1: 'Dream Updated',
+                                text2: 'Your dream has been saved',
+                            });
+                        }
+                    },
+                    {
+                        text: "Yes",
+                        onPress: async () => {
+                            try {
+                                await analyzeDream({
+                                    dreamId: dream._id,
+                                    text: editedText.trim(),
+                                });
+                                Toast.show({
+                                    type: 'success',
+                                    text1: 'Dream Updated',
+                                    text2: 'Lumi is analyzing your dream...',
+                                });
+                            } catch (error) {
+                                Toast.show({
+                                    type: 'error',
+                                    text1: 'Analysis Failed',
+                                    text2: 'Could not re-analyze dream',
+                                });
+                            }
+                        }
+                    }
+                ]
+            );
+        } catch (error) {
+            Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'Failed to update dream',
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    // Handle Delete
+    const handleDeletePress = () => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+
+        Alert.alert(
+            "Delete Dream?",
+            "This action cannot be undone. Your dream and its analysis will be permanently deleted.",
+            [
+                {
+                    text: "Cancel",
+                    style: "cancel"
+                },
+                {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            if (dream) {
+                                await deleteDream({ id: dream._id });
+                                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                                Toast.show({
+                                    type: 'success',
+                                    text1: 'Dream Deleted',
+                                    text2: 'Your dream has been removed',
+                                });
+                                router.back();
+                            }
+                        } catch (error) {
+                            Toast.show({
+                                type: 'error',
+                                text1: 'Error',
+                                text2: 'Failed to delete dream',
+                            });
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+
+    const handleBack = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        router.back();
+    };
+
+    const handleShare = async () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+        if (!dream || !dream.interpretation) {
+            Alert.alert("Not Ready", "Please wait for Lumi to finish analyzing your dream.");
+            return;
+        }
+
+        setIsSharing(true);
+
+        try {
+            // Extract first 2 sentences from interpretation
+            const sentences = dream.interpretation.match(/[^.!?]+[.!?]+/g) || [];
+            const excerpt = sentences.slice(0, 2).join(' ').trim();
+
+            // Get top 3 symbols
+            const topSymbols = dream.symbols?.slice(0, 3) || [];
+
+            // Format the shareable text
+            const shareText = `🌙 Dream from ${new Date(dream.createdAt).toLocaleDateString()}
+
+"${dream.text}"
+
+✨ Lumi's Insight:
+${excerpt}
+
+🔮 Symbols: ${topSymbols.map(s => `#${s}`).join(' ')}
+
+Interpreted by Lumi 🌙
+Your bioluminescent dream journal`;
+
+            // Use native Share API
+            const result = await Share.share({
+                message: shareText,
+                title: 'My Dream Interpretation'
+            });
+
+            if (result.action === Share.sharedAction) {
+                // Shared successfully
+                showSuccessToast('Dream shared successfully');
+            }
+        } catch (error) {
+            showErrorToast('Unable to share your dream at this time');
+        } finally {
+            setIsSharing(false);
+        }
+    };
 
     if (dream === undefined) {
         return (
@@ -32,12 +223,14 @@ export default function DreamDetailScreen() {
         return (
             <View style={[styles.container, styles.center]}>
                 <Text style={styles.errorText}>Dream not found.</Text>
-                <Pressable onPress={() => router.back()} style={styles.backButton}>
+                <Pressable onPress={handleBack} style={styles.backButton}>
                     <Text style={styles.backButtonText}>Return to Sanctuary</Text>
                 </Pressable>
             </View>
         );
     }
+
+    const sentimentColors = getSentimentColor(dream.sentiment);
 
     return (
         <View style={styles.container}>
@@ -45,22 +238,40 @@ export default function DreamDetailScreen() {
 
                 {/* Header Image Area */}
                 <View style={styles.imageHeader}>
-                    <View style={styles.placeholderArt}>
-                        <MotiView
-                            from={{ opacity: 0.3, scale: 0.9 }}
-                            animate={{ opacity: 0.5, scale: 1.0 }}
-                            transition={{ loop: true, type: 'timing', duration: 4000 }}
-                        >
-                            <LucideMoon color="#BAF2BB" size={80} strokeWidth={1} />
-                        </MotiView>
-                    </View>
+                    {dream.imageUrl ? (
+                        <Image
+                            source={{ uri: dream.imageUrl }}
+                            style={styles.heroImage}
+                            contentFit="cover"
+                            transition={500}
+                        />
+                    ) : (
+                        <View style={styles.placeholderArt}>
+                            <MotiView
+                                from={{ opacity: 0.3, scale: 0.9 }}
+                                animate={{ opacity: 0.5, scale: 1.0 }}
+                                transition={{ loop: true, type: 'timing', duration: 4000 }}
+                            >
+                                <LucideImage color="#BAF2BB" size={80} strokeWidth={1} opacity={0.3} />
+                            </MotiView>
+                            <Text style={styles.artLabel}>Painting your dream...</Text>
+                        </View>
+                    )}
 
                     <SafeAreaView style={styles.headerControls} edges={['top']}>
-                        <Pressable onPress={() => router.back()} style={styles.iconButton}>
+                        <Pressable onPress={handleBack} style={styles.iconButton}>
                             <LucideArrowLeft color="#fff" size={24} />
                         </Pressable>
-                        <Pressable style={styles.iconButton}>
-                            <LucideShare color="#fff" size={24} />
+                        <Pressable
+                            style={[styles.iconButton, isSharing && styles.iconButtonDisabled]}
+                            onPress={handleShare}
+                            disabled={isSharing}
+                        >
+                            {isSharing ? (
+                                <ActivityIndicator size="small" color="#fff" />
+                            ) : (
+                                <LucideShare color="#fff" size={24} />
+                            )}
                         </Pressable>
                     </SafeAreaView>
                 </View>
@@ -74,13 +285,35 @@ export default function DreamDetailScreen() {
                             })}
                         </Text>
                         {dream.sentiment && (
-                            <View style={styles.sentimentBadge}>
-                                <Text style={styles.sentimentText}>{dream.sentiment}</Text>
+                            <View style={[styles.sentimentBadge, {
+                                backgroundColor: sentimentColors.bg,
+                                borderColor: sentimentColors.text + '40'
+                            }]}>
+                                <Text style={[styles.sentimentText, { color: sentimentColors.text }]}>{dream.sentiment}</Text>
                             </View>
                         )}
                     </View>
 
                     <Text style={styles.dreamText}>"{dream.text}"</Text>
+
+                    {/* Action Buttons */}
+                    <View style={styles.actionRow}>
+                        <Pressable
+                            style={styles.editButton}
+                            onPress={handleEditPress}
+                        >
+                            <LucideEdit3 color="#BAF2BB" size={18} />
+                            <Text style={styles.editButtonText}>Edit</Text>
+                        </Pressable>
+
+                        <Pressable
+                            style={styles.deleteButton}
+                            onPress={handleDeletePress}
+                        >
+                            <LucideTrash2 color="#FF6B6B" size={18} />
+                            <Text style={styles.deleteButtonText}>Delete</Text>
+                        </Pressable>
+                    </View>
 
                     <View style={styles.separator} />
 
@@ -93,12 +326,16 @@ export default function DreamDetailScreen() {
                             </View>
                             <Text style={styles.interpretation}>{dream.interpretation}</Text>
 
-                            {/* Note: Schema does not yet have 'lumiQuote', using placeholder logic if needed or just omission */}
-                            <View style={styles.quoteBox}>
-                                <Text style={styles.quoteText}>
-                                    "The subconscious speaks in whispers, and you have finally listened."
-                                </Text>
-                            </View>
+                            {dream.lumi_quote && (
+                                <View style={styles.quoteBox}>
+                                    <View style={styles.quoteMascotContainer}>
+                                        <LumiMascot isListening={false} amplitude={0} />
+                                    </View>
+                                    <Text style={styles.quoteText}>
+                                        "{dream.lumi_quote}"
+                                    </Text>
+                                </View>
+                            )}
                         </View>
                     ) : (
                         <View style={styles.analysisSection}>
@@ -119,6 +356,64 @@ export default function DreamDetailScreen() {
                     )}
 
                 </View>
+
+            {/* Edit Modal */}
+            <Modal
+                visible={isEditModalVisible}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={() => setIsEditModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Edit Dream</Text>
+                            <Pressable
+                                onPress={() => setIsEditModalVisible(false)}
+                                style={styles.closeButton}
+                            >
+                                <LucideX color="#fff" size={24} />
+                            </Pressable>
+                        </View>
+
+                        <TextInput
+                            style={styles.textInput}
+                            value={editedText}
+                            onChangeText={setEditedText}
+                            multiline
+                            placeholder="Write your dream here..."
+                            placeholderTextColor="rgba(255,255,255,0.3)"
+                            autoFocus
+                            editable={!isSubmitting}
+                        />
+
+                        <View style={styles.modalActions}>
+                            <Pressable
+                                style={[styles.modalButton, styles.cancelButton]}
+                                onPress={() => setIsEditModalVisible(false)}
+                                disabled={isSubmitting}
+                            >
+                                <Text style={styles.cancelButtonText}>Cancel</Text>
+                            </Pressable>
+
+                            <Pressable
+                                style={[styles.modalButton, styles.saveButton, isSubmitting && styles.saveButtonDisabled]}
+                                onPress={handleSaveEdit}
+                                disabled={isSubmitting}
+                            >
+                                {isSubmitting ? (
+                                    <ActivityIndicator color="#030014" size="small" />
+                                ) : (
+                                    <>
+                                        <LucideCheck color="#030014" size={18} />
+                                        <Text style={styles.saveButtonText}>Save</Text>
+                                    </>
+                                )}
+                            </Pressable>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
             </ScrollView>
         </View>
     );
@@ -165,6 +460,10 @@ const styles = StyleSheet.create({
         backgroundColor: '#1A1B41',
         position: 'relative',
     },
+    heroImage: {
+        width: '100%',
+        height: '100%',
+    },
     placeholderArt: {
         flex: 1,
         justifyContent: 'center',
@@ -194,6 +493,9 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(0,0,0,0.3)',
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    iconButtonDisabled: {
+        opacity: 0.5,
     },
     contentContainer: {
         flex: 1,
@@ -267,13 +569,20 @@ const styles = StyleSheet.create({
         padding: 20,
         borderRadius: 16,
         borderLeftWidth: 4,
-        borderLeftColor: '#BAF2BB',
+        borderLeftColor: '#F4E04D',
+    },
+    quoteMascotContainer: {
+        width: 40,
+        height: 40,
+        marginBottom: 12,
+        marginLeft: -4,
     },
     quoteText: {
-        color: '#BAF2BB',
+        color: '#F4E04D',
         fontStyle: 'italic',
         fontSize: 16,
         lineHeight: 24,
+        fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
     },
     symbolsRow: {
         flexDirection: 'row',
@@ -291,5 +600,164 @@ const styles = StyleSheet.create({
     symbolText: {
         color: 'rgba(255,255,255,0.7)',
         fontSize: 14,
-    }
+    },
+    // Action Button Styles
+    actionRow: {
+        flexDirection: 'row',
+        gap: 12,
+        marginBottom: 24,
+    },
+    editButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        paddingVertical: 14,
+        paddingHorizontal: 20,
+        backgroundColor: 'rgba(186, 242, 187, 0.1)',
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(186, 242, 187, 0.3)',
+    },
+    editButtonText: {
+        color: '#BAF2BB',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    deleteButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        paddingVertical: 14,
+        paddingHorizontal: 20,
+        backgroundColor: 'rgba(255, 107, 107, 0.1)',
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 107, 107, 0.3)',
+    },
+    deleteButtonText: {
+        color: '#FF6B6B',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    // Modal Styles
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.9)',
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
+        backgroundColor: '#1A1B41',
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        padding: 24,
+        minHeight: '70%',
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 24,
+    },
+    modalTitle: {
+        color: '#fff',
+        fontSize: 24,
+        fontWeight: 'bold',
+        fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+    },
+    closeButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    textInput: {
+        flex: 1,
+        color: '#fff',
+        fontSize: 18,
+        lineHeight: 28,
+        fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+        textAlignVertical: 'top',
+        marginBottom: 24,
+    },
+    modalActions: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    modalButton: {
+        flex: 1,
+        paddingVertical: 16,
+        paddingHorizontal: 24,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    cancelButton: {
+        backgroundColor: 'rgba(255,255,255,0.1)',
+    },
+    cancelButtonText: {
+        color: 'rgba(255,255,255,0.7)',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    saveButton: {
+        backgroundColor: '#BAF2BB',
+        flexDirection: 'row',
+        gap: 8,
+    },
+    saveButtonDisabled: {
+        opacity: 0.6,
+    },
+    saveButtonText: {
+        color: '#030014',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    actionRow: {
+        flexDirection: 'row',
+        gap: 12,
+        marginTop: 20,
+        marginBottom: 20,
+    },
+    editButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        backgroundColor: 'rgba(186, 242, 187, 0.1)',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(186, 242, 187, 0.3)',
+    },
+    editButtonText: {
+        color: '#BAF2BB',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    deleteButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        backgroundColor: 'rgba(255, 107, 107, 0.1)',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 107, 107, 0.3)',
+    },
+    deleteButtonText: {
+        color: '#FF6B6B',
+        fontSize: 14,
+        fontWeight: '600',
+    },
 });

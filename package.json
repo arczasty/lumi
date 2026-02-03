@@ -14,15 +14,21 @@
         "build": "turbo build",
         "lint": "turbo lint",
         "typecheck": "turbo typecheck",
+        "test": "npm run test --workspace=apps/mobile && vitest run",
+        "test:watch": "vitest",
+        "test:coverage": "vitest run --coverage",
         "knip": "knip",
         "audit": "npm run knip && npm audit",
         "check-all": "npm run lint && npm run typecheck && npm run audit"
     },
     "devDependencies": {
         "@types/node": "^25.2.0",
+        "@vitest/ui": "^4.0.18",
+        "convex-test": "^0.0.41",
         "prettier": "^3.0.0",
         "turbo": "^2.0.0",
-        "typescript": "^5.0.0"
+        "typescript": "^5.0.0",
+        "vitest": "^4.0.18"
     },
     "dependencies": {
         "convex": "^1.31.7",

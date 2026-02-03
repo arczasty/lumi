@@ -4,6 +4,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
 import { Loader2, Moon, Sparkles, Calendar } from "lucide-react";
+import { Doc } from "../../../convex/_generated/dataModel";
 
 export default function Dashboard() {
     const { user, isLoaded } = useUser();
@@ -43,7 +44,7 @@ export default function Dashboard() {
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {dreams.map((dream: any) => (
+                        {dreams.map((dream: Doc<"dreams">) => (
                             <div
                                 key={dream._id}
                                 className="bg-white/5 border border-white/10 rounded-3xl p-6 hover:bg-white/10 transition-all group backdrop-blur-xl"

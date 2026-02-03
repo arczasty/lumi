@@ -2,9 +2,8 @@ import React from "react";
 import { StyleSheet, Dimensions, Platform } from "react-native";
 import { Text, View } from "@/components/Themed";
 import { Link, useRouter } from "expo-router";
-import { createMetadata } from "@/components/Themed"; // Assuming this might exist or I'll just use basic components
 import { MotiView, MotiText } from "moti";
-import { LinearGradient } from "expo-linear-gradient"; // You might need to install this if not present, but usually standard in Expo
+import { LinearGradient } from "expo-linear-gradient";
 import { Pressable } from "react-native";
 import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";

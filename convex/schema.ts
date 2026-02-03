@@ -8,9 +8,8 @@ export default defineSchema({
         interpretation: v.optional(v.string()),
         sentiment: v.optional(v.string()),
         symbols: v.optional(v.array(v.string())),
+        lumi_quote: v.optional(v.string()),
         imageUrl: v.optional(v.string()),
-        audioUrl: v.optional(v.string()),
-        audioStorageId: v.optional(v.string()), // For Convex Storage
         createdAt: v.number(),
     }).index("by_user", ["userId"]),
 });

@@ -33,12 +33,6 @@
     },
     "plugins": [
       "expo-router",
-      [
-        "expo-av",
-        {
-          "microphonePermission": "Allow Lumi to listen to your dreams so she can weave them into insights."
-        }
-      ],
       "expo-secure-store"
     ],
     "experiments": {
