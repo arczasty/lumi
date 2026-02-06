@@ -1,43 +1,46 @@
-import React from "react";
-import { FontAwesome5 } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
-import { useTheme } from "@react-navigation/native";
+import React from "react";
+import { Mic, BookOpen, Settings, Sparkles } from "lucide-react-native";
+import { FloatingTabBar } from "@/components/Navigation/FloatingTabBar";
 
 export default function TabLayout() {
-  const { colors } = useTheme();
 
   return (
     <Tabs
+      tabBar={(props) => <FloatingTabBar {...props} />}
       screenOptions={{
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: "rgba(255, 255, 255, 0.4)",
         headerShown: false,
+        // Hide the default tab bar background since we perform custom floating one
         tabBarStyle: {
-          backgroundColor: colors.background,
-          borderTopColor: colors.border,
+          position: 'absolute',
+          backgroundColor: 'transparent',
+          borderTopWidth: 0,
           elevation: 0,
-          shadowOpacity: 0,
-          height: 80,
-          paddingBottom: 20,
-        },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: "600",
-        },
+        }
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: "Record",
-          tabBarIcon: ({ color }) => <FontAwesome5 name="microphone" size={24} color={color} />,
         }}
       />
       <Tabs.Screen
         name="journal"
         options={{
           title: "Journal",
-          tabBarIcon: ({ color }) => <FontAwesome5 name="book-open" size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="insights"
+        options={{
+          title: "Insights",
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: "Settings",
         }}
       />
     </Tabs>

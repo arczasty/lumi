@@ -12,19 +12,27 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { LumiLoader } from "@/components/SanctuaryUI/LumiLoader";
 import Toast from "react-native-toast-message";
 import { toastConfig } from "@/components/ToastConfig";
+import { posthog, PostHogProvider } from "@/lib/posthog";
 
 // Google Fonts via Expo packages
 import {
   useFonts,
   PlayfairDisplay_400Regular,
   PlayfairDisplay_600SemiBold,
+  PlayfairDisplay_700Bold,
 } from "@expo-google-fonts/playfair-display";
 import {
-  Inter_400Regular,
-  Inter_500Medium,
-} from "@expo-google-fonts/inter";
+  Nunito_400Regular,
+  Nunito_500Medium,
+  Nunito_600SemiBold,
+  Nunito_700Bold,
+} from "@expo-google-fonts/nunito";
 
-const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!);
+const CONVEX_URL = process.env.EXPO_PUBLIC_CONVEX_URL_DEV || process.env.EXPO_PUBLIC_CONVEX_URL;
+if (!CONVEX_URL) {
+  console.error("❌ Convex: Missing EXPO_PUBLIC_CONVEX_URL_DEV or EXPO_PUBLIC_CONVEX_URL in .env.local");
+}
+const convex = new ConvexReactClient(CONVEX_URL || "https://missing-url.convex.cloud");
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -32,7 +40,6 @@ export {
 } from "expo-router";
 
 export const unstable_settings = {
-  // Ensure that reloading on `/modal` keeps a back button present.
   initialRouteName: "(tabs)",
 };
 
@@ -46,7 +53,7 @@ const LumiTheme = {
   colors: {
     ...DarkTheme.colors,
     background: "#030014", // Deep Midnight
-    primary: "#BAF2BB", // Bioluminescent Teal
+    primary: "#A78BFA", // Purple accent (EcoCalm-inspired)
     card: "rgba(255, 255, 255, 0.05)", // Glassmorphic
     text: "#FFFFFF",
     border: "rgba(255, 255, 255, 0.1)",
@@ -83,11 +90,9 @@ function RootLayoutNav() {
     <>
       <ThemeProvider value={LumiTheme}>
         <Stack>
-          <Stack.Screen name="onboarding/index" options={{ headerShown: false }} />
+          <Stack.Screen name="onboarding" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: "modal" }} />
           <Stack.Screen name="dream/[id]" options={{ headerShown: false }} />
-          <Stack.Screen name="settings/index" options={{ headerShown: false }} />
         </Stack>
       </ThemeProvider>
       <Toast config={toastConfig} />
@@ -97,11 +102,15 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
-    // Premium Google Fonts
+    // Heading Font: Playfair Display
     "Playfair": PlayfairDisplay_400Regular,
     "Playfair-SemiBold": PlayfairDisplay_600SemiBold,
-    "Inter": Inter_400Regular,
-    "Inter-Medium": Inter_500Medium,
+    "Playfair-Bold": PlayfairDisplay_700Bold,
+    // Body Font: Nunito
+    "Nunito": Nunito_400Regular,
+    "Nunito-Medium": Nunito_500Medium,
+    "Nunito-SemiBold": Nunito_600SemiBold,
+    "Nunito-Bold": Nunito_700Bold,
     // Icons
     ...FontAwesome.font,
   });
@@ -124,9 +133,11 @@ export default function RootLayout() {
   return (
     <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} tokenCache={tokenCache}>
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-        <SafeAreaProvider>
-          <RootLayoutNav />
-        </SafeAreaProvider>
+        <PostHogProvider client={posthog}>
+          <SafeAreaProvider>
+            <RootLayoutNav />
+          </SafeAreaProvider>
+        </PostHogProvider>
       </ConvexProviderWithClerk>
     </ClerkProvider>
   );

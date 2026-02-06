@@ -22,7 +22,7 @@
         "check-all": "npm run lint && npm run typecheck && npm run audit"
     },
     "devDependencies": {
-        "@types/node": "^25.2.0",
+        "@types/node": "^25.2.1",
         "@vitest/ui": "^4.0.18",
         "convex-test": "^0.0.41",
         "prettier": "^3.0.0",

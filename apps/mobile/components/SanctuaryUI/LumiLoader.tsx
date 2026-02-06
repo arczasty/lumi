@@ -1,63 +1,60 @@
-import React, { useEffect } from "react";
-import { StyleSheet, View } from "react-native";
-import { MotiView, MotiText } from "moti";
-import { SanctuaryBackground } from "./Background";
+import React, { useEffect, useState } from "react";
+import { StyleSheet, View, ActivityIndicator } from "react-native";
+import { SanctuaryBackground } from "@/components/SanctuaryUI/Background";
+import { MotiView, MotiText, AnimatePresence } from "moti";
+
+const LOADING_PHRASES = [
+    "Consulting the stars...",
+    "Drifting through the ether...",
+    "Weaving starlight...",
+    "Listening to the silence...",
+    "Awakening your sanctuary...",
+];
 
 export const LumiLoader = () => {
+    const [phraseIndex, setPhraseIndex] = useState(0);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setPhraseIndex((prev) => (prev + 1) % LOADING_PHRASES.length);
+        }, 2000);
+        return () => clearInterval(interval);
+    }, []);
+
     return (
         <SanctuaryBackground>
             <View style={styles.container}>
-                {/* Center Orb Breathing */}
+                {/* Animated Pulse Orb */}
                 <MotiView
-                    from={{ scale: 1, opacity: 0.8 }}
-                    animate={{ scale: 1.2, opacity: 0.5 }}
+                    from={{ opacity: 0.5, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1.1 }}
                     transition={{
                         type: 'timing',
-                        duration: 2000,
+                        duration: 1500,
                         loop: true,
                     }}
-                    style={styles.orb}
-                />
-
-                {/* Optional Orbiting Particle 1 */}
-                <MotiView
-                    from={{ rotate: '0deg', translateX: 40 }}
-                    animate={{ rotate: '360deg', translateX: 40 }}
-                    transition={{
-                        type: 'timing',
-                        duration: 3000,
-                        loop: true,
-                        repeatReverse: false,
-                    }}
-                    style={styles.orbitContainer}
+                    style={styles.orbContainer}
                 >
-                    <View style={styles.particle} />
+                    <View style={styles.orbOuter}>
+                        <View style={styles.orbInner} />
+                    </View>
                 </MotiView>
 
-                {/* Optional Orbiting Particle 2 (Reverse) */}
-                <MotiView
-                    from={{ rotate: '360deg', translateX: 60 }}
-                    animate={{ rotate: '0deg', translateX: 60 }}
-                    transition={{
-                        type: 'timing',
-                        duration: 5000,
-                        loop: true,
-                        repeatReverse: false,
-                    }}
-                    style={styles.orbitContainer}
-                >
-                    <View style={[styles.particle, { backgroundColor: '#F4E04D', width: 6, height: 6 }]} />
-                </MotiView>
-
-                {/* Subtitle */}
-                <MotiText
-                    from={{ opacity: 0.4 }}
-                    animate={{ opacity: 0.8 }}
-                    transition={{ duration: 1500, loop: true, type: 'timing' }}
-                    style={styles.text}
-                >
-                    Loading...
-                </MotiText>
+                {/* Mystical Text Rotator */}
+                <View style={styles.textContainer}>
+                    <AnimatePresence exitBeforeEnter>
+                        <MotiText
+                            key={phraseIndex}
+                            from={{ opacity: 0, translateY: 10 }}
+                            animate={{ opacity: 1, translateY: 0 }}
+                            exit={{ opacity: 0, translateY: -10 }}
+                            transition={{ type: 'timing', duration: 500 }}
+                            style={styles.text}
+                        >
+                            {LOADING_PHRASES[phraseIndex]}
+                        </MotiText>
+                    </AnimatePresence>
+                </View>
             </View>
         </SanctuaryBackground>
     );
@@ -69,36 +66,37 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    orb: {
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        backgroundColor: '#BAF2BB',
-        shadowColor: "#BAF2BB",
+    orbContainer: {
+        marginBottom: 40,
+    },
+    orbOuter: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        backgroundColor: 'rgba(186, 242, 187, 0.15)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    orbInner: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        backgroundColor: '#A78BFA',
+        shadowColor: '#A78BFA',
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 0.8,
         shadowRadius: 20,
     },
-    orbitContainer: {
-        position: 'absolute',
-        width: 10,
-        height: 10,
+    textContainer: {
+        height: 40,
         alignItems: 'center',
         justifyContent: 'center',
     },
-    particle: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: '#fff',
-        opacity: 0.8,
-    },
     text: {
-        marginTop: 100,
-        color: 'white',
-        fontSize: 12,
-        letterSpacing: 2,
-        textTransform: 'uppercase',
-        opacity: 0.6,
+        color: 'rgba(255, 255, 255, 0.7)',
+        fontSize: 18,
+        fontFamily: 'Playfair',
+        letterSpacing: 1,
+        textAlign: 'center',
     }
 });

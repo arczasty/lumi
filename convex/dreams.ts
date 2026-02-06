@@ -22,6 +22,30 @@ export const saveDream = mutation({
             text: args.text ?? "",
             createdAt: createdAt ?? Date.now(),
         });
+
+        // Gamification Logic: Award XP
+        const user = await ctx.db
+            .query("users")
+            .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
+            .first();
+
+        if (user) {
+            const currentXp = user.xp ?? 0;
+            const currentLevel = user.level ?? 1;
+            const newXp = currentXp + 10; // Award 10 XP
+
+            // Simple Level Up Logic: Level up every 100 XP
+            const nextLevelXp = currentLevel * 100;
+            const newLevel = newXp >= nextLevelXp ? currentLevel + 1 : currentLevel;
+
+            await ctx.db.patch(user._id, {
+                xp: newXp,
+                level: newLevel,
+                lastEntryDate: Date.now(),
+                // Streak logic could go here (check if lastEntryDate was yesterday)
+            });
+        }
+
         return dreamId;
     },
 });

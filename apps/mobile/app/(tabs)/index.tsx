@@ -1,280 +1,384 @@
-import React, { useState } from "react";
-import { StyleSheet, Pressable, Dimensions, Platform, TextInput, KeyboardAvoidingView, ActivityIndicator, Keyboard } from "react-native";
+import React, { useState, useEffect } from "react";
+import { StyleSheet, Pressable, Dimensions, Platform, TextInput, KeyboardAvoidingView, ScrollView, Keyboard } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Text, View } from "@/components/Themed";
-import { useMutation, useAction } from "convex/react";
+import { useMutation, useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useAuth } from "@clerk/clerk-expo";
-import { LumiMascot } from "@/components/LumiMascot";
+import { useAuth, useUser } from "@clerk/clerk-expo";
 import { SanctuaryBackground } from "@/components/SanctuaryUI/Background";
-import { useTheme } from "@react-navigation/native";
-import { MotiView, MotiText } from "moti";
-import { LucideSettings, LucideSparkles, LucideSend, LucideX } from "lucide-react-native";
+import { MotiView, MotiText, AnimatePresence } from "moti";
+import { Send, Mic, Square, Sparkles, BookOpen } from "lucide-react-native";
 import { useRouter } from "expo-router";
-import { BlurView } from "expo-blur";
-import { Image } from "expo-image";
 import { showErrorToast, showSuccessToast } from "@/lib/toast";
 import * as Haptics from "expo-haptics";
+import { FONTS } from "@/constants/Theme";
 
-const { width } = Dimensions.get("window");
+let Audio: any = null;
+try {
+  const ExpoAV = require('expo-av');
+  Audio = ExpoAV.Audio;
+} catch (e) {
+  console.log('Audio module not available', e);
+}
 
 export default function RecordScreen() {
-  const { colors } = useTheme();
   const router = useRouter();
   const { userId } = useAuth();
+  const { user: clerkUser } = useUser();
 
   const [dreamText, setDreamText] = useState("");
-  const [status, setStatus] = useState<"idle" | "writing" | "analyzing" | "completed">("idle");
-  const [isFocused, setIsFocused] = useState(false);
+  const [status, setStatus] = useState<"idle" | "writing" | "recording" | "analyzing" | "completed">("idle");
+  const [recording, setRecording] = useState<any | null>(null);
 
   const saveDream = useMutation(api.dreams.saveDream);
   const analyzeDream = useAction(api.ai.analyzeDream);
   const generateDreamImage = useAction(api.ai.generateDreamImage);
+  const generateUploadUrl = useMutation(api.dreams.generateUploadUrl);
+  const transcribeAndAnalyze = useAction(api.ai.transcribeAndAnalyze);
 
-  async function submitDream() {
-    if (!dreamText.trim()) return;
+  useEffect(() => {
+    return () => {
+      if (recording) {
+        recording.stopAndUnloadAsync().catch(() => { });
+      }
+    };
+  }, [recording]);
 
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    Keyboard.dismiss();
-    setStatus("analyzing");
+  const handleTextChange = (text: string) => {
+    setDreamText(text);
+    if (text.length > 0) setStatus('writing');
+    else if (status !== 'recording') setStatus('idle');
+  };
+
+  async function startRecording() {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      const permission = await Audio?.requestPermissionsAsync();
+      if (permission.status !== 'granted') {
+        showErrorToast("Microphone permission required");
+        return;
+      }
+
+      await Audio?.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
+      const { recording } = await Audio?.Recording.createAsync(
+        Audio?.RecordingOptionsPresets.HIGH_QUALITY
+      );
+      setRecording(recording);
+      setStatus("recording");
+    } catch (err) {
+      console.error('Failed to start recording', err);
+      showErrorToast("Failed to start recording");
+    }
+  }
+
+  async function stopRecording() {
+    if (!recording) return;
 
     try {
-      // 1. Save Dream Text
-      const dreamId = await saveDream({
-        userId: userId ?? "guest_legacy_id", // Fallback for demo
-        text: dreamText,
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setStatus("analyzing");
+
+      await recording.stopAndUnloadAsync();
+      const uri = recording.getURI();
+      setRecording(null);
+
+      if (!uri || !userId) {
+        showErrorToast("Recording failed");
+        setStatus("idle");
+        return;
+      }
+
+      const uploadUrl = await generateUploadUrl();
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const uploadResponse = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": blob.type || "audio/m4a" },
+        body: blob,
       });
+      const { storageId } = await uploadResponse.json();
 
-      // 2. Trigger Analysis and Image Generation in parallel (don't wait)
-      Promise.all([
-        analyzeDream({
-          dreamId,
-          text: dreamText
-        }),
-        generateDreamImage({
-          dreamId,
-          dreamText: dreamText
-        })
-      ]).catch(err => {
-        showErrorToast("Dream analysis failed, but your dream was saved");
-      });
+      const dreamId = await saveDream({ userId, text: "Processing voice recording..." });
+      await transcribeAndAnalyze({ dreamId, storageId });
 
-      // 3. Navigate immediately (analysis & image gen continue in background)
-      router.push(`/dream/${dreamId}`);
-      showSuccessToast("Dream captured in the sanctuary");
+      showSuccessToast("Dream captured!");
+      setStatus("completed");
+      setTimeout(() => {
+        router.push({ pathname: '/dream/[id]', params: { id: dreamId } });
+        setStatus("idle");
+      }, 800);
 
-      // Reset
-      setDreamText("");
-      setStatus("idle");
-    } catch (e) {
-      showErrorToast("Failed to save dream. Please try again.");
+    } catch (err) {
+      console.error('Failed to process recording', err);
+      showErrorToast("Failed to process recording");
       setStatus("idle");
     }
   }
 
+  async function handleSubmitDream() {
+    if (!dreamText.trim() || !userId) return;
+
+    Keyboard.dismiss();
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setStatus("analyzing");
+
+    try {
+      const dreamId = await saveDream({ userId, text: dreamText.trim() });
+      const dreamTextCopy = dreamText.trim();
+      setDreamText("");
+
+      analyzeDream({ dreamId, text: dreamTextCopy }).catch(console.error);
+      generateDreamImage({ dreamId, dreamText: dreamTextCopy }).catch(console.error);
+
+      showSuccessToast("Dream saved!");
+
+      setTimeout(() => {
+        setStatus("completed");
+        router.push({ pathname: '/dream/[id]', params: { id: dreamId } });
+        setStatus("idle");
+      }, 1500);
+
+    } catch (e) {
+      showErrorToast("Failed to save dream");
+      setStatus("idle");
+    }
+  }
+
+  const firstName = clerkUser?.firstName || "Dreamer";
+
   return (
     <SanctuaryBackground>
-      <SafeAreaView style={styles.safeArea}>
-
-        {/* Header */}
-        <BlurView intensity={20} tint="dark" style={styles.glassHeader}>
-          <View style={styles.headerContent}>
-            <Text style={styles.headerTitle}>Lumi</Text>
-          </View>
-          <Pressable
-            onPress={() => router.push("/settings")}
-            style={styles.actionButton}
-          >
-            <LucideSettings color="rgba(255,255,255,0.6)" size={24} />
-          </Pressable>
-        </BlurView>
-
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.keyboardContainer}
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          <View style={styles.centerContent}>
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.greeting}>Hello,</Text>
+            <Text style={styles.userName}>{firstName} ✨</Text>
+          </View>
 
-            {/* Mascot State */}
-            <MotiView
-              animate={{
-                scale: isFocused ? 0.6 : 1,
-                opacity: status === 'analyzing' ? 0.5 : 1
-              }}
-              transition={{ type: 'timing', duration: 500 }}
-              style={styles.mascotContainer}
-            >
-              <LumiMascot
-                isListening={status === 'analyzing'} // Pulse when analyzing
-                amplitude={status === 'analyzing' ? 0.5 : 0}
-              />
-            </MotiView>
-
-            {/* Status Label */}
-            <MotiText
-              animate={{ opacity: isFocused ? 0 : 1 }}
-              style={styles.promptText}
-            >
-              {status === 'analyzing' ? "Consulting the stars..." : "Share your reflection"}
-            </MotiText>
-
-            {/* Text Composer */}
-            {status !== 'analyzing' && (
+          {/* Main Recording Card */}
+          <MotiView
+            from={{ opacity: 0, translateY: 20 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ delay: 100 }}
+            style={styles.mainCard}
+          >
+            {/* Orb + Prompt */}
+            <View style={styles.orbSection}>
               <MotiView
-                from={{ opacity: 0, translateY: 20 }}
-                animate={{ opacity: 1, translateY: 0 }}
-                style={styles.inputContainer}
+                animate={{
+                  scale: status === 'recording' ? [1, 1.2, 1] : status === 'analyzing' ? [1, 1.1, 1] : 1,
+                }}
+                transition={{
+                  type: 'timing',
+                  duration: status === 'recording' ? 1000 : 1500,
+                  loop: status === 'recording' || status === 'analyzing',
+                }}
+                style={styles.orbContainer}
               >
-                <BlurView intensity={30} tint="dark" style={styles.inputBlur}>
-                  <TextInput
-                    style={[styles.textInput, { color: colors.text }]}
-                    placeholder="I was floating above a glass city..."
-                    placeholderTextColor="rgba(255,255,255,0.3)"
-                    multiline
-                    value={dreamText}
-                    onChangeText={(t) => {
-                      setDreamText(t);
-                      if (t.length > 0) setStatus('writing');
-                      else setStatus('idle');
-                    }}
-                    onFocus={() => setIsFocused(true)}
-                    onBlur={() => setIsFocused(false)}
-                  />
-
-                  {/* Actions Bar inside Input */}
-                  <View style={styles.inputActions}>
-                    {dreamText.length > 0 && (
-                      <Pressable
-                        style={styles.clearButton}
-                        onPress={() => setDreamText("")}
-                      >
-                        <LucideX size={16} color="rgba(255,255,255,0.4)" />
-                      </Pressable>
-                    )}
-                    <View style={{ flex: 1 }} />
-                    <Pressable
-                      style={[
-                        styles.sendButton,
-                        { backgroundColor: dreamText.length > 0 ? colors.primary : 'rgba(255,255,255,0.1)' }
-                      ]}
-                      disabled={dreamText.length === 0}
-                      onPress={submitDream}
-                    >
-                      <LucideSend size={20} color={dreamText.length > 0 ? '#030014' : 'rgba(255,255,255,0.2)'} />
-                    </Pressable>
-                  </View>
-                </BlurView>
+                <View style={styles.orbOuter}>
+                  <View style={styles.orbInner} />
+                </View>
               </MotiView>
+
+              <AnimatePresence>
+                <MotiText
+                  key={status}
+                  from={{ opacity: 0, translateY: 10 }}
+                  animate={{ opacity: 1, translateY: 0 }}
+                  exit={{ opacity: 0 }}
+                  style={styles.promptText}
+                >
+                  {status === 'analyzing' ? "Weaving your dream..." :
+                    status === 'recording' ? "Listening..." :
+                      status === 'writing' ? "Keep writing..." :
+                        "What did you dream?"}
+                </MotiText>
+              </AnimatePresence>
+            </View>
+
+            {/* Text Input */}
+            {status !== 'analyzing' && (
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Describe your dream..."
+                  placeholderTextColor="rgba(255,255,255,0.4)"
+                  multiline
+                  value={dreamText}
+                  onChangeText={handleTextChange}
+                  editable={status !== 'recording'}
+                />
+              </View>
+            )}
+
+            {/* Action Buttons */}
+            {status !== 'analyzing' && (
+              <View style={styles.actionsRow}>
+                <Pressable
+                  style={[styles.actionBtn, status === 'recording' && styles.actionBtnActive]}
+                  onPress={status === 'recording' ? stopRecording : startRecording}
+                >
+                  {status === 'recording' ? (
+                    <Square size={20} color="#fff" fill="#fff" />
+                  ) : (
+                    <Mic size={20} color="#A78BFA" />
+                  )}
+                </Pressable>
+
+                <Pressable
+                  style={[styles.sendBtn, !dreamText.trim() && styles.sendBtnDisabled]}
+                  onPress={handleSubmitDream}
+                  disabled={!dreamText.trim()}
+                >
+                  <Send size={20} color={dreamText.trim() ? "#0A0A0F" : "rgba(255,255,255,0.3)"} />
+                </Pressable>
+              </View>
             )}
 
             {/* Loading State */}
             {status === 'analyzing' && (
-              <ActivityIndicator size="large" color="#BAF2BB" style={{ marginTop: 40 }} />
+              <MotiView from={{ opacity: 0 }} animate={{ opacity: 1 }} style={styles.loadingContainer}>
+                <View style={styles.loadingDots}>
+                  {[0, 1, 2].map((i) => (
+                    <MotiView
+                      key={i}
+                      from={{ opacity: 0.3, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ type: 'timing', duration: 600, delay: i * 200, loop: true }}
+                      style={styles.loadingDot}
+                    />
+                  ))}
+                </View>
+              </MotiView>
             )}
+          </MotiView>
 
-          </View>
-        </KeyboardAvoidingView>
+          {/* Quick Actions */}
+          <MotiView
+            from={{ opacity: 0, translateY: 20 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ delay: 200 }}
+          >
+            <Text style={styles.sectionTitle}>Quick Actions</Text>
+            <View style={styles.quickActionsRow}>
+              <Pressable style={styles.quickActionCard} onPress={() => router.push("/(tabs)/journal")}>
+                <View style={styles.quickActionIcon}>
+                  <BookOpen size={20} color="#A78BFA" />
+                </View>
+                <Text style={styles.quickActionLabel}>Journal</Text>
+              </Pressable>
 
+              <Pressable style={styles.quickActionCard} onPress={() => router.push("/(tabs)/insights")}>
+                <View style={styles.quickActionIcon}>
+                  <Sparkles size={20} color="#A78BFA" />
+                </View>
+                <Text style={styles.quickActionLabel}>Insights</Text>
+              </Pressable>
+            </View>
+          </MotiView>
+
+        </ScrollView>
       </SafeAreaView>
     </SanctuaryBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
-  glassHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    marginHorizontal: 16,
-    marginTop: 10,
-    borderRadius: 24,
-    overflow: 'hidden',
+  safeArea: { flex: 1 },
+  scrollView: { flex: 1 },
+  scrollContent: { padding: 20, paddingBottom: 120 },
+  // Header
+  header: { marginBottom: 24, backgroundColor: 'transparent' },
+  greeting: { fontFamily: FONTS.body.regular, fontSize: 16, color: 'rgba(255,255,255,0.6)' },
+  userName: { fontFamily: FONTS.heading.bold, fontSize: 28, color: '#fff' },
+  // Main Card
+  mainCard: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 20,
+    padding: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderColor: 'rgba(255,255,255,0.08)',
+    marginBottom: 24,
   },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  headerIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 12,
-  },
-  headerTitle: {
-    fontSize: 22,
-    color: '#fff',
-    fontFamily: 'Playfair-SemiBold',
-    letterSpacing: 1,
-  },
-  actionButton: {
-    padding: 8,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 12,
-  },
-  keyboardContainer: {
-    flex: 1,
-  },
-  centerContent: {
-    flex: 1,
+  orbSection: { alignItems: 'center', marginBottom: 24, backgroundColor: 'transparent' },
+  orbContainer: { marginBottom: 16 },
+  orbOuter: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(167, 139, 250, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 20,
   },
-  mascotContainer: {
-    marginBottom: 30,
+  orbInner: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#A78BFA',
+    shadowColor: '#A78BFA',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 20,
   },
-  promptText: {
-    fontSize: 26,
-    color: "#fff",
-    fontFamily: "Playfair",
-    letterSpacing: 0.5,
-    marginBottom: 40,
-    textAlign: 'center',
-    opacity: 0.9,
+  promptText: { fontFamily: FONTS.body.medium, fontSize: 20, color: 'rgba(255,255,255,0.8)', textAlign: 'center' },
+  // Input
+  inputWrapper: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    marginBottom: 16,
   },
-  inputContainer: {
-    width: '100%',
-    maxWidth: 500,
-  },
-  inputBlur: {
-    borderRadius: 24,
-    overflow: 'hidden',
+  textInput: { fontFamily: FONTS.body.regular, minHeight: 100, maxHeight: 160, padding: 16, fontSize: 16, color: '#fff' },
+  // Actions
+  actionsRow: { flexDirection: 'row', justifyContent: 'center', gap: 16, backgroundColor: 'transparent' },
+  actionBtn: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
-    backgroundColor: 'rgba(3,0,20,0.4)',
   },
-  textInput: {
-    padding: 24,
-    fontSize: 17,
-    lineHeight: 28,
-    minHeight: 150,
-    maxHeight: 300,
-    textAlignVertical: 'top',
-    fontFamily: 'Inter',
-  },
-  inputActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.05)',
-    backgroundColor: 'rgba(0,0,0,0.2)',
-  },
-  clearButton: {
-    padding: 10,
-  },
-  sendButton: {
-    padding: 12,
+  actionBtnActive: { backgroundColor: '#EF4444', borderColor: '#EF4444' },
+  sendBtn: { width: 52, height: 52, borderRadius: 26, backgroundColor: '#A78BFA', alignItems: 'center', justifyContent: 'center' },
+  sendBtnDisabled: { backgroundColor: 'rgba(255,255,255,0.1)' },
+  // Loading
+  loadingContainer: { alignItems: 'center', paddingVertical: 20, backgroundColor: 'transparent' },
+  loadingDots: { flexDirection: 'row', gap: 8, backgroundColor: 'transparent' },
+  loadingDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#A78BFA' },
+  // Quick Actions
+  sectionTitle: { fontFamily: FONTS.body.semiBold, fontSize: 16, color: 'rgba(255,255,255,0.6)', marginBottom: 12 },
+  quickActionsRow: { flexDirection: 'row', gap: 12, backgroundColor: 'transparent' },
+  quickActionCard: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.06)',
     borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  quickActionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(167, 139, 250, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 8,
   },
+  quickActionLabel: { fontFamily: FONTS.body.medium, fontSize: 13, color: 'rgba(255,255,255,0.7)' },
 });

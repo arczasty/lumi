@@ -10,7 +10,7 @@ export function getSentimentColor(sentiment?: string): { bg: string; text: strin
 
   switch (normalizedSentiment) {
     case "positive":
-      return { bg: "rgba(186, 242, 187, 0.2)", text: "#BAF2BB" }; // Green
+      return { bg: "rgba(186, 242, 187, 0.2)", text: "#A78BFA" }; // Green
     case "bliss":
       return { bg: "rgba(244, 224, 77, 0.2)", text: "#F4E04D" }; // Gold
     case "negative":

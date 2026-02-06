@@ -4,7 +4,7 @@ import { Text, View } from "@/components/Themed";
 import { Link, useRouter, useLocalSearchParams } from "expo-router";
 import { MotiView } from "moti";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LucideArrowLeft, LucideShare, LucideSparkles, LucideMoon, LucideEdit3, LucideTrash2, LucideX, LucideCheck, LucideImage } from "lucide-react-native";
+import { ArrowLeft, Share as LucideShare, Sparkles, Moon, Edit3, Trash2, X, Check, Image as LucideImage } from "lucide-react-native";
 import { Pressable } from "react-native";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -14,7 +14,6 @@ import Toast from "react-native-toast-message";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { getSentimentColor } from "@/utils/colors";
-import { LumiMascot } from "@/components/LumiMascot";
 import { LumiLoader } from "@/components/SanctuaryUI/LumiLoader";
 import { showSuccessToast, showErrorToast } from "@/lib/toast";
 
@@ -213,7 +212,7 @@ Your bioluminescent dream journal`;
     if (dream === undefined) {
         return (
             <View style={[styles.container, styles.center]}>
-                <ActivityIndicator size="large" color="#BAF2BB" />
+                <ActivityIndicator size="large" color="#A78BFA" />
                 <Text style={styles.loadingText}>Retrieving memory...</Text>
             </View>
         );
@@ -252,7 +251,7 @@ Your bioluminescent dream journal`;
                                 animate={{ opacity: 0.5, scale: 1.0 }}
                                 transition={{ loop: true, type: 'timing', duration: 4000 }}
                             >
-                                <LucideImage color="#BAF2BB" size={80} strokeWidth={1} opacity={0.3} />
+                                <LucideImage color="#A78BFA" size={80} strokeWidth={1} opacity={0.3} />
                             </MotiView>
                             <Text style={styles.artLabel}>Painting your dream...</Text>
                         </View>
@@ -260,7 +259,7 @@ Your bioluminescent dream journal`;
 
                     <SafeAreaView style={styles.headerControls} edges={['top']}>
                         <Pressable onPress={handleBack} style={styles.iconButton}>
-                            <LucideArrowLeft color="#fff" size={24} />
+                            <ArrowLeft color="#fff" size={24} />
                         </Pressable>
                         <Pressable
                             style={[styles.iconButton, isSharing && styles.iconButtonDisabled]}
@@ -302,7 +301,7 @@ Your bioluminescent dream journal`;
                             style={styles.editButton}
                             onPress={handleEditPress}
                         >
-                            <LucideEdit3 color="#BAF2BB" size={18} />
+                            <Edit3 color="#A78BFA" size={18} />
                             <Text style={styles.editButtonText}>Edit</Text>
                         </Pressable>
 
@@ -310,7 +309,7 @@ Your bioluminescent dream journal`;
                             style={styles.deleteButton}
                             onPress={handleDeletePress}
                         >
-                            <LucideTrash2 color="#FF6B6B" size={18} />
+                            <Trash2 color="#FF6B6B" size={18} />
                             <Text style={styles.deleteButtonText}>Delete</Text>
                         </Pressable>
                     </View>
@@ -321,15 +320,15 @@ Your bioluminescent dream journal`;
                     {dream.interpretation ? (
                         <View style={styles.analysisSection}>
                             <View style={styles.sectionTitleRow}>
-                                <LucideSparkles color="#F4E04D" size={20} />
+                                <Sparkles color="#F4E04D" size={20} />
                                 <Text style={styles.sectionTitle}>Lumi's Insight</Text>
                             </View>
                             <Text style={styles.interpretation}>{dream.interpretation}</Text>
 
                             {dream.lumi_quote && (
                                 <View style={styles.quoteBox}>
-                                    <View style={styles.quoteMascotContainer}>
-                                        <LumiMascot isListening={false} amplitude={0} />
+                                    <View style={styles.quoteIconContainer}>
+                                        <Moon size={24} color="#A78BFA" />
                                     </View>
                                     <Text style={styles.quoteText}>
                                         "{dream.lumi_quote}"
@@ -357,63 +356,63 @@ Your bioluminescent dream journal`;
 
                 </View>
 
-            {/* Edit Modal */}
-            <Modal
-                visible={isEditModalVisible}
-                animationType="slide"
-                transparent={true}
-                onRequestClose={() => setIsEditModalVisible(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Edit Dream</Text>
-                            <Pressable
-                                onPress={() => setIsEditModalVisible(false)}
-                                style={styles.closeButton}
-                            >
-                                <LucideX color="#fff" size={24} />
-                            </Pressable>
-                        </View>
+                {/* Edit Modal */}
+                <Modal
+                    visible={isEditModalVisible}
+                    animationType="slide"
+                    transparent={true}
+                    onRequestClose={() => setIsEditModalVisible(false)}
+                >
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContent}>
+                            <View style={styles.modalHeader}>
+                                <Text style={styles.modalTitle}>Edit Dream</Text>
+                                <Pressable
+                                    onPress={() => setIsEditModalVisible(false)}
+                                    style={styles.closeButton}
+                                >
+                                    <X color="#fff" size={24} />
+                                </Pressable>
+                            </View>
 
-                        <TextInput
-                            style={styles.textInput}
-                            value={editedText}
-                            onChangeText={setEditedText}
-                            multiline
-                            placeholder="Write your dream here..."
-                            placeholderTextColor="rgba(255,255,255,0.3)"
-                            autoFocus
-                            editable={!isSubmitting}
-                        />
+                            <TextInput
+                                style={styles.textInput}
+                                value={editedText}
+                                onChangeText={setEditedText}
+                                multiline
+                                placeholder="Write your dream here..."
+                                placeholderTextColor="rgba(255,255,255,0.3)"
+                                autoFocus
+                                editable={!isSubmitting}
+                            />
 
-                        <View style={styles.modalActions}>
-                            <Pressable
-                                style={[styles.modalButton, styles.cancelButton]}
-                                onPress={() => setIsEditModalVisible(false)}
-                                disabled={isSubmitting}
-                            >
-                                <Text style={styles.cancelButtonText}>Cancel</Text>
-                            </Pressable>
+                            <View style={styles.modalActions}>
+                                <Pressable
+                                    style={[styles.modalButton, styles.cancelButton]}
+                                    onPress={() => setIsEditModalVisible(false)}
+                                    disabled={isSubmitting}
+                                >
+                                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                                </Pressable>
 
-                            <Pressable
-                                style={[styles.modalButton, styles.saveButton, isSubmitting && styles.saveButtonDisabled]}
-                                onPress={handleSaveEdit}
-                                disabled={isSubmitting}
-                            >
-                                {isSubmitting ? (
-                                    <ActivityIndicator color="#030014" size="small" />
-                                ) : (
-                                    <>
-                                        <LucideCheck color="#030014" size={18} />
-                                        <Text style={styles.saveButtonText}>Save</Text>
-                                    </>
-                                )}
-                            </Pressable>
+                                <Pressable
+                                    style={[styles.modalButton, styles.saveButton, isSubmitting && styles.saveButtonDisabled]}
+                                    onPress={handleSaveEdit}
+                                    disabled={isSubmitting}
+                                >
+                                    {isSubmitting ? (
+                                        <ActivityIndicator color="#030014" size="small" />
+                                    ) : (
+                                        <>
+                                            <Check color="#030014" size={18} />
+                                            <Text style={styles.saveButtonText}>Save</Text>
+                                        </>
+                                    )}
+                                </Pressable>
+                            </View>
                         </View>
                     </View>
-                </View>
-            </Modal>
+                </Modal>
             </ScrollView>
         </View>
     );
@@ -471,7 +470,7 @@ const styles = StyleSheet.create({
         opacity: 0.3,
     },
     artLabel: {
-        color: '#BAF2BB',
+        color: '#A78BFA',
         marginTop: 16,
         opacity: 0.6,
         fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
@@ -527,7 +526,7 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(186, 242, 187, 0.2)',
     },
     sentimentText: {
-        color: '#BAF2BB',
+        color: '#A78BFA',
         fontSize: 12,
         fontWeight: 'bold',
         textTransform: 'uppercase',
@@ -571,7 +570,7 @@ const styles = StyleSheet.create({
         borderLeftWidth: 4,
         borderLeftColor: '#F4E04D',
     },
-    quoteMascotContainer: {
+    quoteIconContainer: {
         width: 40,
         height: 40,
         marginBottom: 12,
@@ -621,7 +620,7 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(186, 242, 187, 0.3)',
     },
     editButtonText: {
-        color: '#BAF2BB',
+        color: '#A78BFA',
         fontSize: 16,
         fontWeight: '600',
     },
@@ -706,7 +705,7 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     saveButton: {
-        backgroundColor: '#BAF2BB',
+        backgroundColor: '#A78BFA',
         flexDirection: 'row',
         gap: 8,
     },
@@ -716,48 +715,6 @@ const styles = StyleSheet.create({
     saveButtonText: {
         color: '#030014',
         fontSize: 16,
-        fontWeight: '600',
-    },
-    actionRow: {
-        flexDirection: 'row',
-        gap: 12,
-        marginTop: 20,
-        marginBottom: 20,
-    },
-    editButton: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        paddingVertical: 12,
-        paddingHorizontal: 20,
-        backgroundColor: 'rgba(186, 242, 187, 0.1)',
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: 'rgba(186, 242, 187, 0.3)',
-    },
-    editButtonText: {
-        color: '#BAF2BB',
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    deleteButton: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        paddingVertical: 12,
-        paddingHorizontal: 20,
-        backgroundColor: 'rgba(255, 107, 107, 0.1)',
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 107, 107, 0.3)',
-    },
-    deleteButtonText: {
-        color: '#FF6B6B',
-        fontSize: 14,
         fontWeight: '600',
     },
 });
