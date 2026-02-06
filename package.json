@@ -1,41 +1,47 @@
 {
-    "name": "lumi-monorepo",
-    "private": true,
-    "packageManager": "npm@10.9.3",
-    "workspaces": [
-        "apps/*",
-        "packages/*"
-    ],
-    "scripts": {
-        "dev": "turbo dev",
-        "dev:mobile": "npm run start --workspace=apps/mobile",
-        "dev:web": "npm run dev --workspace=apps/web",
-        "dev:convex": "npx convex dev",
-        "build": "turbo build",
-        "lint": "turbo lint",
-        "typecheck": "turbo typecheck",
-        "test": "npm run test --workspace=apps/mobile && vitest run",
-        "test:watch": "vitest",
-        "test:coverage": "vitest run --coverage",
-        "knip": "knip",
-        "audit": "npm run knip && npm audit",
-        "check-all": "npm run lint && npm run typecheck && npm run audit"
-    },
-    "devDependencies": {
-        "@types/node": "^25.2.1",
-        "@vitest/ui": "^4.0.18",
-        "convex-test": "^0.0.41",
-        "prettier": "^3.0.0",
-        "react": "19.1.4",
-        "react-dom": "19.1.4",
-        "react-test-renderer": "19.1.4",
-        "turbo": "^2.0.0",
-        "typescript": "^5.0.0",
-        "vitest": "^4.0.18"
-    },
-    "dependencies": {
-        "@clerk/clerk-react": "^5.60.0",
-        "convex": "^1.31.7",
-        "zod": "^4.3.6"
-    }
+  "name": "lumi-monorepo",
+  "private": true,
+  "packageManager": "npm@10.9.3",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo dev",
+    "dev:mobile": "npm run start --workspace=apps/mobile",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "dev:convex": "npx convex dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "test": "npm run test --workspace=apps/mobile && vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "knip": "knip",
+    "audit": "npm run knip && npm audit",
+    "check-all": "npm run lint && npm run typecheck && npm run audit",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.1",
+    "@vitest/ui": "^4.0.18",
+    "convex-test": "^0.0.41",
+    "prettier": "^3.0.0",
+    "react": "19.1.4",
+    "react-dom": "19.1.4",
+    "react-test-renderer": "19.1.4",
+    "turbo": "^2.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^4.0.18"
+  },
+  "dependencies": {
+    "@clerk/clerk-react": "^5.60.0",
+    "convex": "^1.31.7",
+    "zod": "^4.3.6",
+    "expo": "~54.0.33",
+    "react": "19.1.0",
+    "react-native": "0.81.5"
+  },
+  "version": "1.0.0"
 }

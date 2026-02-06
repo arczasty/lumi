@@ -1,0 +1,14 @@
+
+> dev:mobile
+> npm run start --workspace=apps/mobile
+
+
+> mobile@1.0.0 start
+> expo start
+
+env: load .env.local
+env: export EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY EXPO_PUBLIC_CLERK_SECRET_KEY EXPO_PUBLIC_CONVEX_URL_PROD EXPO_PUBLIC_CONVEX_URL_DEV EXPO_PUBLIC_POSTHOG_API_KEY EXPO_PUBLIC_DEVELOPMENT EXPO_PUBLIC_OPENROUTER_API_KEY
+Starting project at /Users/arkadiusz/Documents/Development_Studio/Lumi_v0/apps/mobile
+› Port 8081 is running this app in another window
+  /Users/arkadiusz/Documents/Development_Studio/Lumi_v0/apps/mobile (pid 5035)
+› Skipping dev server
