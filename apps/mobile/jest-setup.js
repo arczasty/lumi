@@ -1,10 +1,10 @@
 // Add custom jest matchers from react-native-testing-library
-import '@testing-library/react-native/extend-expect';
+import '@testing-library/jest-native/extend-expect';
 
 // Mock react-native-reanimated
 jest.mock('react-native-reanimated', () => {
   const Reanimated = require('react-native-reanimated/mock');
-  Reanimated.default.call = () => {};
+  Reanimated.default.call = () => { };
   return Reanimated;
 });
 
@@ -41,4 +41,4 @@ jest.mock('expo-blur', () => ({
 }));
 
 // Silence the warning: Animated: `useNativeDriver` is not supported
-jest.mock('react-native/Libraries/Animated/NativeAnimatedHelper');
+// jest.mock('react-native/Libraries/Animated/NativeAnimatedHelper');

@@ -13,13 +13,7 @@ import { showErrorToast, showSuccessToast } from "@/lib/toast";
 import * as Haptics from "expo-haptics";
 import { FONTS } from "@/constants/Theme";
 
-let Audio: any = null;
-try {
-  const ExpoAV = require('expo-av');
-  Audio = ExpoAV.Audio;
-} catch (e) {
-  console.log('Audio module not available', e);
-}
+import { useAudioRecorder, AudioModule, RecordingPresets } from 'expo-audio';
 
 export default function RecordScreen() {
   const router = useRouter();
@@ -28,7 +22,8 @@ export default function RecordScreen() {
 
   const [dreamText, setDreamText] = useState("");
   const [status, setStatus] = useState<"idle" | "writing" | "recording" | "analyzing" | "completed">("idle");
-  const [recording, setRecording] = useState<any | null>(null);
+
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
 
   const saveDream = useMutation(api.dreams.saveDream);
   const analyzeDream = useAction(api.ai.analyzeDream);
@@ -38,11 +33,11 @@ export default function RecordScreen() {
 
   useEffect(() => {
     return () => {
-      if (recording) {
-        recording.stopAndUnloadAsync().catch(() => { });
+      if (recorder.isRecording) {
+        recorder.stop();
       }
     };
-  }, [recording]);
+  }, []);
 
   const handleTextChange = (text: string) => {
     setDreamText(text);
@@ -53,21 +48,13 @@ export default function RecordScreen() {
   async function startRecording() {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      const permission = await Audio?.requestPermissionsAsync();
-      if (permission.status !== 'granted') {
+      const permission = await AudioModule.requestRecordingPermissionsAsync();
+      if (!permission.granted) {
         showErrorToast("Microphone permission required");
         return;
       }
 
-      await Audio?.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
-
-      const { recording } = await Audio?.Recording.createAsync(
-        Audio?.RecordingOptionsPresets.HIGH_QUALITY
-      );
-      setRecording(recording);
+      recorder.record();
       setStatus("recording");
     } catch (err) {
       console.error('Failed to start recording', err);
@@ -76,15 +63,12 @@ export default function RecordScreen() {
   }
 
   async function stopRecording() {
-    if (!recording) return;
-
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setStatus("analyzing");
 
-      await recording.stopAndUnloadAsync();
-      const uri = recording.getURI();
-      setRecording(null);
+      await recorder.stop();
+      const uri = recorder.uri;
 
       if (!uri || !userId) {
         showErrorToast("Recording failed");

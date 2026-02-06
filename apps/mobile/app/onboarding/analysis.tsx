@@ -3,7 +3,7 @@ import { StyleSheet, View, ImageBackground, Dimensions, ScrollView, Pressable } 
 import { Text } from "@/components/Themed";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { MotiView, MotiText } from "moti";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Lock, Sparkles, ArrowRight, Share2 } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { SanctuaryBackground } from "@/components/SanctuaryUI/Background";
@@ -30,6 +30,7 @@ const LOADING_MESSAGES = [
 
 export default function AnalysisScreen() {
     const router = useRouter();
+    const insets = useSafeAreaInsets();
     const params = useLocalSearchParams<{
         text: string;
         intent: string;
@@ -179,8 +180,8 @@ export default function AnalysisScreen() {
 
     return (
         <SanctuaryBackground>
-            <SafeAreaView style={{ flex: 1 }}>
-                <ScrollView contentContainerStyle={styles.scrollContainer}>
+            <View style={{ flex: 1 }}>
+                <ScrollView contentContainerStyle={[styles.scrollContainer, { paddingTop: insets.top + 24, paddingBottom: 100 + insets.bottom }]}>
 
                     <MotiView
                         from={{ opacity: 0, translateY: 20 }}
@@ -256,7 +257,7 @@ export default function AnalysisScreen() {
                     from={{ opacity: 0, translateY: 50 }}
                     animate={{ opacity: 1, translateY: 0 }}
                     transition={{ delay: 800 }}
-                    style={styles.footer}
+                    style={[styles.footer, { paddingBottom: 24 + insets.bottom }]}
                 >
                     <Pressable
                         onPress={handleUnlock}
@@ -268,7 +269,7 @@ export default function AnalysisScreen() {
                     </Pressable>
                 </MotiView>
 
-            </SafeAreaView>
+            </View>
         </SanctuaryBackground>
     );
 }

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { StyleSheet, View, Pressable, Platform, ScrollView } from 'react-native';
 import { SanctuaryBackground } from "@/components/SanctuaryUI/Background";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useOAuth } from '@clerk/clerk-expo';
 import { Text } from '@/components/Themed';
@@ -16,6 +16,7 @@ import { useUser } from '@clerk/clerk-expo';
 
 export default function AuthGateScreen() {
     const router = useRouter();
+    const insets = useSafeAreaInsets();
     // Receive params from Analysis
     const { text, intent, age, sex, recall } = useLocalSearchParams<{
         text: string,
@@ -117,7 +118,13 @@ export default function AuthGateScreen() {
 
     return (
         <SanctuaryBackground>
-            <SafeAreaView style={{ flex: 1 }}>
+            <View style={{
+                flex: 1,
+                paddingTop: insets.top,
+                paddingBottom: insets.bottom,
+                paddingLeft: insets.left,
+                paddingRight: insets.right
+            }}>
                 <View style={styles.container}>
 
                     <MotiView
@@ -169,6 +176,7 @@ export default function AuthGateScreen() {
                         <View style={styles.socialRow}>
                             {/* Apple */}
                             <Pressable
+                                testID="apple-auth-button"
                                 style={[styles.socialButton, { backgroundColor: '#FFFFFF' }]}
                                 onPress={() => handleSignIn('apple')}
                             >
@@ -177,6 +185,7 @@ export default function AuthGateScreen() {
 
                             {/* Google */}
                             <Pressable
+                                testID="google-auth-button"
                                 style={[styles.socialButton, { backgroundColor: '#FFFFFF' }]}
                                 onPress={() => handleSignIn('google')}
                             >
@@ -185,6 +194,7 @@ export default function AuthGateScreen() {
 
                             {/* Email */}
                             <Pressable
+                                testID="email-auth-button"
                                 style={[styles.socialButton, { backgroundColor: '#FFFFFF' }]}
                                 onPress={() => console.log("Email Auth")}
                             >
@@ -198,7 +208,7 @@ export default function AuthGateScreen() {
                     </MotiView>
 
                 </View>
-            </SafeAreaView>
+            </View>
         </SanctuaryBackground>
     );
 }

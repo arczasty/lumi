@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { StyleSheet, View, ScrollView, Dimensions, Pressable } from 'react-native';
 import { SanctuaryBackground } from "@/components/SanctuaryUI/Background";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MotiView } from 'moti';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useMutation, useAction, useQuery } from 'convex/react';
@@ -26,6 +26,7 @@ const extractTeaser = (text: string) => {
 
 export default function PaywallScreen() {
     const router = useRouter();
+    const insets = useSafeAreaInsets();
     const { userId } = useAuth();
     const { dreamId, text } = useLocalSearchParams<{ dreamId?: string, text?: string }>();
 
@@ -85,7 +86,12 @@ export default function PaywallScreen() {
                 <BlurView intensity={70} tint="dark" style={StyleSheet.absoluteFill} />
             </View>
 
-            <SafeAreaView style={styles.container}>
+            <View style={[styles.container, {
+                paddingTop: insets.top,
+                paddingBottom: insets.bottom,
+                paddingLeft: insets.left,
+                paddingRight: insets.right
+            }]}>
                 <View style={styles.content}>
 
                     {/* Header: Aggressive Teaser */}
@@ -195,7 +201,7 @@ export default function PaywallScreen() {
                     </MotiView>
 
                 </View>
-            </SafeAreaView>
+            </View>
         </SanctuaryBackground>
     );
 }

@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { StyleSheet, View, TextInput, KeyboardAvoidingView, Platform, Keyboard, Pressable, TouchableWithoutFeedback } from 'react-native';
 import { SanctuaryBackground } from "@/components/SanctuaryUI/Background";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MotiView, AnimatePresence } from 'moti';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Text } from '@/components/Themed';
@@ -13,6 +13,7 @@ import { useWindowDimensions } from "react-native";
 
 export default function EntryScreen() {
     const router = useRouter();
+    const insets = useSafeAreaInsets();
     const params = useLocalSearchParams();
     const { width, height } = useWindowDimensions();
     // params: intent, age, sex, recall
@@ -51,7 +52,13 @@ export default function EntryScreen() {
 
     return (
         <SanctuaryBackground>
-            <SafeAreaView style={{ flex: 1 }}>
+            <View style={{
+                flex: 1,
+                paddingTop: insets.top,
+                paddingBottom: insets.bottom,
+                paddingLeft: insets.left,
+                paddingRight: insets.right
+            }}>
                 <KeyboardAvoidingView
                     behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                     style={{ flex: 1 }}
@@ -117,7 +124,7 @@ export default function EntryScreen() {
                         </View>
                     </TouchableWithoutFeedback>
                 </KeyboardAvoidingView>
-            </SafeAreaView>
+            </View>
         </SanctuaryBackground>
     );
 }
