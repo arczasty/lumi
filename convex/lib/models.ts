@@ -27,8 +27,8 @@ export const MODELS = {
     audioAnalysis: getEnvModel("AI_MODEL_AUDIO_ANALYSIS", "google/gemini-flash-1.5"),
 
     // Image Generation
-    // Default: Flux 1.1 Pro (High quality, artistic)
-    imageGeneration: getEnvModel("AI_MODEL_IMAGE_GENERATION", "black-forest-labs/flux.2-klein-4b"),
+    // Default: Flux Schnell (High speed, quality)
+    imageGeneration: getEnvModel("AI_MODEL_IMAGE_GENERATION", "black-forest-labs/flux-schnell"),
 } as const;
 
 export type AITask = keyof typeof MODELS;

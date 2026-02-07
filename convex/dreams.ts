@@ -40,7 +40,7 @@ export const saveDream = mutation({
         interpretation: v.optional(v.string()),
         sentiment: v.optional(v.string()),
         symbols: v.optional(v.array(v.string())),
-        imageUrl: v.optional(v.string()),
+        // imageUrl: v.optional(v.string()), // REMOVED
         createdAt: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
@@ -173,13 +173,8 @@ export const getDreams = query({
 
         return await Promise.all(
             dreams.map(async (dream) => {
-                if (dream.storageId) {
-                    const url = await ctx.storage.getUrl(dream.storageId);
-                    if (url) {
-                        return { ...dream, imageUrl: url };
-                    }
-                }
-                return dream;
+                const url = dream.storageId ? await ctx.storage.getUrl(dream.storageId) : null;
+                return { ...dream, imageUrl: url ?? undefined };
             })
         );
     },
@@ -191,13 +186,8 @@ export const getDreamById = query({
         const dream = await ctx.db.get(args.id);
         if (!dream) return null;
 
-        if (dream.storageId) {
-            const url = await ctx.storage.getUrl(dream.storageId);
-            if (url) {
-                return { ...dream, imageUrl: url };
-            }
-        }
-        return dream;
+        const url = dream.storageId ? await ctx.storage.getUrl(dream.storageId) : null;
+        return { ...dream, imageUrl: url ?? undefined };
     },
 });
 
@@ -367,7 +357,7 @@ export const claimPreAuthDream = mutation({
             dreamSymbols: preAuth.dreamSymbols,
             dreamArchetypes: preAuth.dreamArchetypes,
             dreamEmotions: preAuth.dreamEmotions,
-            imageUrl: preAuth.imageUrl,
+            // imageUrl: preAuth.imageUrl, // REMOVED
             storageId: preAuth.storageId,
             imageStatus: preAuth.imageStatus,
             imageRetryCount: preAuth.imageRetryCount,

@@ -18,7 +18,8 @@ import {
     LucideCrown,
     LucideZap,
     LucideInfinity,
-    LucideEye
+    LucideEye,
+    LucideX
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { FONTS, PURPLE, TEXT } from "@/constants/Theme";
@@ -53,13 +54,20 @@ export default function PaywallScreen() {
             try {
                 const offerings = await Purchases.getOfferings();
                 if (offerings.current && offerings.current.availablePackages.length > 0) {
-                    const packages = offerings.current.availablePackages.sort((a, b) =>
-                        (b.product.subscriptionPeriod === 'P1Y' ? 1 : -1)
-                    );
+                    // Order: Monthly → Yearly → Lifetime
+                    const packageOrder: Record<string, number> = {
+                        'P1M': 1,  // Monthly first
+                        'P1Y': 2,  // Yearly second
+                    };
+                    const packages = offerings.current.availablePackages.sort((a, b) => {
+                        const orderA = packageOrder[a.product.subscriptionPeriod || ''] || 3; // Lifetime/other last
+                        const orderB = packageOrder[b.product.subscriptionPeriod || ''] || 3;
+                        return orderA - orderB;
+                    });
                     setAllPackages(packages);
-                    // Default to Annual (usually the first one after sort, or finding explicitly)
-                    const annual = packages.find(p => p.product.subscriptionPeriod === 'P1Y');
-                    setSelectedPackage(annual || packages[0]);
+                    // Default to Yearly (best value)
+                    const yearly = packages.find(p => p.product.subscriptionPeriod === 'P1Y');
+                    setSelectedPackage(yearly || packages[0]);
                 }
             } catch (e) {
                 console.error("Error loading offerings:", e);
@@ -131,6 +139,9 @@ export default function PaywallScreen() {
                     <Pressable onPress={handleBack} style={styles.backButton}>
                         <LucideArrowLeft color="rgba(255,255,255,0.6)" size={24} />
                     </Pressable>
+                    <Pressable onPress={handleBack} style={styles.backButton}>
+                        <LucideX color="rgba(255,255,255,0.6)" size={24} />
+                    </Pressable>
                 </View>
 
                 <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -184,7 +195,21 @@ export default function PaywallScreen() {
                     <View style={styles.packagesContainer}>
                         {allPackages.map((pkg) => {
                             const isSelected = selectedPackage?.identifier === pkg.identifier;
-                            const isAnnual = pkg.product.subscriptionPeriod === 'P1Y';
+                            const isMonthly = pkg.product.subscriptionPeriod === 'P1M';
+                            const isYearly = pkg.product.subscriptionPeriod === 'P1Y';
+                            const isLifetime = !pkg.product.subscriptionPeriod || pkg.identifier.includes('lifetime');
+
+                            // Determine display label and price suffix
+                            const getLabel = () => {
+                                if (isMonthly) return 'Monthly';
+                                if (isYearly) return 'Yearly (Best Value)';
+                                return 'Lifetime';
+                            };
+                            const getPriceSuffix = () => {
+                                if (isMonthly) return '/month';
+                                if (isYearly) return '/year';
+                                return ' once';
+                            };
 
                             return (
                                 <Pressable
@@ -203,21 +228,37 @@ export default function PaywallScreen() {
                                     </View>
                                     <View style={styles.packageInfo}>
                                         <Text style={styles.packageTitle}>
-                                            {isAnnual ? 'Annual (Best Value)' : 'Monthly'}
+                                            {getLabel()}
                                         </Text>
                                         <Text style={styles.packagePrice}>
-                                            {pkg.product.priceString} / {isAnnual ? 'year' : 'month'}
+                                            {pkg.product.priceString}{getPriceSuffix()}
                                         </Text>
                                     </View>
-                                    {isAnnual && (
+                                    {isYearly && (
                                         <View style={styles.saveBadge}>
                                             <Text style={styles.saveText}>SAVE 20%</Text>
+                                        </View>
+                                    )}
+                                    {isLifetime && (
+                                        <View style={[styles.saveBadge, { backgroundColor: '#2DD4BF' }]}>
+                                            <Text style={styles.saveText}>FOREVER</Text>
                                         </View>
                                     )}
                                 </Pressable>
                             );
                         })}
                     </View>
+
+                    {/* Continue Free Option */}
+                    <Pressable
+                        onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            handleSuccessNavigation();
+                        }}
+                        style={styles.continueFreeButtton}
+                    >
+                        <Text style={styles.continueFreeText}>Continue with Free Account</Text>
+                    </Pressable>
 
                     {/* Spacer for Footer */}
                     <View style={{ height: 180 }} />
@@ -245,7 +286,13 @@ export default function PaywallScreen() {
                                     {isProcessing ? 'Unlocking...' : (selectedPackage?.product.introPrice ? `Start ${selectedPackage.product.introPrice.periodNumberOfUnits}-Day Free Trial` : 'Unlock Sanctuary Pro')}
                                 </Text>
                                 <Text style={styles.ctaSub}>
-                                    {selectedPackage ? `Then ${selectedPackage.product.priceString}/${selectedPackage.product.subscriptionPeriod === 'P1Y' ? 'year' : 'month'}` : 'Loading offer...'}
+                                    {selectedPackage ? (() => {
+                                        const period = selectedPackage.product.subscriptionPeriod;
+                                        if (!period || selectedPackage.identifier.includes('lifetime')) {
+                                            return `One-time payment of ${selectedPackage.product.priceString}`;
+                                        }
+                                        return `Then ${selectedPackage.product.priceString}/${period === 'P1Y' ? 'year' : 'month'}`;
+                                    })() : 'Loading offer...'}
                                 </Text>
                             </View>
                             <View style={styles.shineElement} />
@@ -271,7 +318,7 @@ export default function PaywallScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    headerActions: { paddingHorizontal: 20, height: 50, justifyContent: 'center' },
+    headerActions: { paddingHorizontal: 20, height: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
     scrollContent: { padding: 24, paddingBottom: 150 },
 
@@ -391,5 +438,9 @@ const styles = StyleSheet.create({
     packagePrice: { fontFamily: FONTS.body.regular, fontSize: 13, color: 'rgba(255,255,255,0.6)', marginTop: 2 },
     saveBadge: { backgroundColor: '#A78BFA', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
     saveText: { fontFamily: FONTS.body.bold, fontSize: 10, color: '#030014' },
+
+    // Continue Free
+    continueFreeButtton: { alignItems: 'center', paddingVertical: 16, marginTop: 8 },
+    continueFreeText: { fontFamily: FONTS.body.medium, fontSize: 14, color: 'rgba(255,255,255,0.4)', textDecorationLine: 'underline' },
 });
 

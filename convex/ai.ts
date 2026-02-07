@@ -505,37 +505,83 @@ export const generateDreamImage = action({
             if (data.error) throw new Error(data.error.message);
 
             const message = data.choices?.[0]?.message;
+            const messageContent = message?.content;
             let imageUrl = "";
 
-            if (typeof message?.content === "string") imageUrl = message.content;
-            else if (Array.isArray(message?.content)) {
-                const part = message.content.find((p: any) => p.type === "image_url" || p.image_url);
+            // Robust extraction logic
+            if (typeof messageContent === "string" && messageContent.length > 10) {
+                if (messageContent.startsWith("http")) imageUrl = messageContent;
+                else if (messageContent.includes("https://")) imageUrl = messageContent.match(/https:\/\/[^\s"]+/)?.[0] || "";
+            }
+            else if (Array.isArray(messageContent)) {
+                const part = messageContent.find((p: any) => p.type === "image_url" || p.image_url);
                 imageUrl = part?.image_url?.url || part?.url || "";
-            } else if (message?.images?.length > 0) {
-                imageUrl = message.images[0].url || message.images[0].image_url?.url || "";
+                if (!imageUrl) {
+                    const textPart = messageContent.find((p: any) => p.type === "text")?.text;
+                    if (textPart?.includes("http")) imageUrl = textPart.match(/https:\/\/[^\s"]+/)?.[0] || "";
+                }
+            }
+            else if (data.choices?.[0]?.url) imageUrl = data.choices[0].url;
+            else if (data.data?.[0]?.url) imageUrl = data.data[0].url;
+            else if (message?.image_url?.url) imageUrl = String(message.image_url.url);
+            else if (message?.url) imageUrl = String(message.url);
+            else if (message?.images?.[0]?.url) imageUrl = String(message.images[0].url);
+            else if (message?.images?.[0] && typeof message.images[0] === 'string') imageUrl = message.images[0];
+
+            if (!imageUrl || typeof imageUrl !== 'string') {
+                // LAST RESORT: Deep search for anything looking like a URL
+                const deepSearch = (obj: any): string | null => {
+                    if (typeof obj === 'string' && (obj.startsWith('http') || obj.startsWith('data:image'))) return obj;
+                    if (obj && typeof obj === 'object') {
+                        for (const key in obj) {
+                            const found = deepSearch(obj[key]);
+                            if (found) return found;
+                        }
+                    }
+                    return null;
+                };
+                imageUrl = deepSearch(data) || "";
             }
 
-            if (!imageUrl) throw new Error("No image content extracted");
+            if (!imageUrl || typeof imageUrl !== 'string') {
+                console.error("[AI] Extraction Failed. Full Response Object:", JSON.stringify(data, null, 2));
+                throw new Error(`Extraction failed. Response keys: ${Object.keys(data).join(', ')}`);
+            }
+
+            console.log(`[AI] Image URL Extracted: ${String(imageUrl).substring(0, 60)}...`);
 
             let storageId;
             try {
-                const imgRes = await fetch(imageUrl);
-                const blob = await imgRes.blob();
-                storageId = await ctx.storage.store(blob);
+                if (imageUrl.startsWith("data:image")) {
+                    console.log("[AI] Handling Base64 Image...");
+                    const [meta, base64Data] = imageUrl.split(",");
+                    const mime = meta.match(/:(.*?);/)?.[1] || "image/png";
+                    const binary = Buffer.from(base64Data, 'base64');
+                    storageId = await ctx.storage.store(new Blob([binary], { type: mime }));
+                } else {
+                    console.log("[AI] Fetching external image...");
+                    const imgRes = await fetch(imageUrl, {
+                        headers: { "User-Agent": "Lumi/1.0" }
+                    });
+                    if (!imgRes.ok) throw new Error(`Fetch failed: ${imgRes.status}`);
+                    const arrayBuffer = await imgRes.arrayBuffer();
+                    storageId = await ctx.storage.store(new Blob([arrayBuffer], { type: imgRes.headers.get("content-type") || "image/png" }));
+                }
+                console.log(`[AI] Saved to storage: ${storageId}`);
             } catch (e) {
-                console.error("Storage failed", e);
+                console.error("[AI] Storage error:", e);
             }
 
+            console.log(`[AI] Updating DB record. StorageId: ${storageId}, DreamId: ${args.dreamId}`);
             await ctx.runMutation(internal.ai_mutations.updateDreamImage, {
                 id: args.dreamId,
                 preAuthId: args.preAuthId,
-                imageUrl: (!imageUrl.startsWith("data:") || !storageId) ? imageUrl : undefined,
                 storageId: storageId as any
             });
 
-            return { imageUrl };
+            return { imageUrl, storageId };
         } catch (error) {
-            logError(logCtx, error);
+            console.error("[AI] generateDreamImage failed:", error);
             await ctx.runMutation(internal.ai_mutations.updateImageStatus, {
                 id: args.dreamId,
                 preAuthId: args.preAuthId,
@@ -763,10 +809,21 @@ export const generateDreamImageInternal = internalAction({
             // Download and store
             let storageId: string | undefined;
             try {
-                const imageResponse = await fetch(imageUrl);
-                if (imageResponse.ok) {
-                    const imageBlob = await imageResponse.blob();
-                    storageId = await ctx.storage.store(imageBlob);
+                if (imageUrl.startsWith("data:image")) {
+                    console.log("[AI Internal] Found Base64 Image, converting...");
+                    const [meta, base64Data] = imageUrl.split(",");
+                    const mime = meta.match(/:(.*?);/)?.[1] || "image/png";
+                    const binary = Buffer.from(base64Data, 'base64');
+                    storageId = await ctx.storage.store(new Blob([binary], { type: mime }));
+                } else {
+                    const imageResponse = await fetch(imageUrl, {
+                        headers: { "User-Agent": "Lumi/1.0" }
+                    });
+                    if (imageResponse.ok) {
+                        const arrayBuffer = await imageResponse.arrayBuffer();
+                        const blob = new Blob([arrayBuffer], { type: imageResponse.headers.get("content-type") || "image/png" });
+                        storageId = await ctx.storage.store(blob);
+                    }
                 }
             } catch (e) {
                 console.error("Failed to store image internally", e);
@@ -774,7 +831,7 @@ export const generateDreamImageInternal = internalAction({
 
             await ctx.runMutation(internal.ai_mutations.updateDreamImage, {
                 id: args.dreamId,
-                imageUrl,
+                // imageUrl, // REMOVED
                 storageId: storageId as any,
             });
 

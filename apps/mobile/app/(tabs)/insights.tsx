@@ -46,9 +46,15 @@ export default function InsightsScreen() {
                 setIsUploading(true);
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-                // Convert URI to Blob/File for Clerk
-                const response = await fetch(result.assets[0].uri);
+                const asset = result.assets[0];
+                const response = await fetch(asset.uri);
                 const blob = await response.blob();
+
+                // Clerk requires a valid image mime type
+                if (!blob.type.startsWith('image/')) {
+                    console.error("Invalid blob type:", blob.type);
+                    throw new Error(`Invalid image format: ${blob.type}`);
+                }
 
                 await user?.setProfileImage({
                     file: blob,
@@ -147,7 +153,6 @@ export default function InsightsScreen() {
                                     >
                                         <View style={styles.nameRow}>
                                             <Text style={styles.profileName}>{user?.fullName || firstName}</Text>
-                                            <Edit2 size={14} color="rgba(255,255,255,0.3)" style={{ marginLeft: 8 }} />
                                         </View>
                                         <Text style={styles.profileEmail}>{user?.primaryEmailAddress?.emailAddress}</Text>
                                     </Pressable>

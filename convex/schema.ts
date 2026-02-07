@@ -37,7 +37,7 @@ export default defineSchema({
 
         lumi_quote: v.optional(v.string()),
         guidance: v.optional(v.string()),
-        imageUrl: v.optional(v.string()),
+        // imageUrl: v.optional(v.string()), // REMOVED: Use storageId
         storageId: v.optional(v.id("_storage")),
         // Image generation tracking
         imageStatus: v.optional(v.union(
@@ -158,7 +158,7 @@ export default defineSchema({
             name: v.string(),
             context: v.string(),
         }))),
-        imageUrl: v.optional(v.string()),
+        // imageUrl: v.optional(v.string()), // REMOVED
         storageId: v.optional(v.id("_storage")),
         imageStatus: v.optional(v.union(
             v.literal("pending"),

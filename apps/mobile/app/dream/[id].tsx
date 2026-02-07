@@ -299,7 +299,7 @@ export default function DreamDetailScreen() {
                     )}
 
                     {/* Compact Meanings Section */}
-                    {(dream.dreamArchetypes?.length || dream.dreamEmotions?.length || dream.dreamSymbols?.length) && (
+                    {((dream.dreamArchetypes?.length ?? 0) > 0 || (dream.dreamEmotions?.length ?? 0) > 0 || (dream.dreamSymbols?.length ?? 0) > 0) && (
                         <View style={styles.meaningsCard}>
                             {renderArchetypes()}
                             {renderEmotions()}

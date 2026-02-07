@@ -48,7 +48,7 @@ export const updateDreamImage = internalMutation({
     args: {
         id: v.optional(v.id("dreams")),
         preAuthId: v.optional(v.id("pre_auth_dreams")),
-        imageUrl: v.optional(v.string()),
+        // imageUrl: v.optional(v.string()), // REMOVED
         storageId: v.optional(v.id("_storage")),
     },
     handler: async (ctx, args) => {
@@ -56,8 +56,10 @@ export const updateDreamImage = internalMutation({
             imageStatus: "completed",
         };
 
-        if (args.imageUrl) updates.imageUrl = args.imageUrl;
-        if (args.storageId) updates.storageId = args.storageId;
+        if (args.storageId !== undefined) {
+            console.log(`[Mutation] Linking storageId ${args.storageId} to record ${args.id || args.preAuthId}`);
+            updates.storageId = args.storageId;
+        }
 
         if (args.id) {
             await ctx.db.patch(args.id, updates);
