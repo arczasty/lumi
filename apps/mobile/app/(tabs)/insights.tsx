@@ -26,7 +26,15 @@ export default function InsightsScreen() {
     const firstName = user?.firstName || "Dreamer";
     const currentLevel = userData?.level ?? 1;
     const currentXp = userData?.xp ?? 0;
-    const nextLevelXp = currentLevel * 100;
+    const nextLevelXp = 100 * Math.pow(currentLevel, 2);
+    // Simple progress based on total XP vs next threshold
+    // For a more granular bar (0-100% of current level), we'd need:
+    // const prevLevelXp = 100 * Math.pow(currentLevel - 1, 2);
+    // const levelRange = nextLevelXp - prevLevelXp;
+    // const progressInLevel = currentXp - prevLevelXp;
+    // const xpProgress = (progressInLevel / levelRange) * 100;
+
+    // But keeping it simple for now to match UI design (showing Total XP)
     const xpProgress = Math.min((currentXp / nextLevelXp) * 100, 100);
     const streak = stats?.streak ?? 0;
     const hasDreams = stats && stats.totalEntries > 0;

@@ -1,15 +1,14 @@
 import React, { useState } from "react";
-import { StyleSheet, Dimensions, Platform, ScrollView, ActivityIndicator, Share, Alert, Modal, TextInput, View } from "react-native";
+import { StyleSheet, Dimensions, Platform, ScrollView, ActivityIndicator, Alert, View } from "react-native";
 import { Text } from "@/components/Themed";
 import { Link, useRouter, useLocalSearchParams } from "expo-router";
 import { MotiView } from "moti";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ArrowLeft, Sparkles, Moon, Trash2, X, Check, Image as LucideImage, User, Heart } from "lucide-react-native";
+import { ArrowLeft, Sparkles, Moon, Trash2, Image as LucideImage, User, Heart } from "lucide-react-native";
 import { Pressable } from "react-native";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import * as Sharing from 'expo-sharing';
 import Toast from "react-native-toast-message";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
@@ -22,100 +21,13 @@ import { LinearGradient } from "expo-linear-gradient";
 export default function DreamDetailScreen() {
     const router = useRouter();
     const { id } = useLocalSearchParams();
-    const [isSharing, setIsSharing] = useState(false);
-    const [isEditModalVisible, setIsEditModalVisible] = useState(false);
-    const [editedText, setEditedText] = useState("");
-    const [isSubmitting, setIsSubmitting] = useState(false);
-
     // Convex hooks
     const dream = useQuery(api.dreams.getDreamById, {
         id: id as Id<"dreams">
     });
-    const updateDream = useMutation(api.dreams.updateDream);
+    // const updateDream = useMutation(api.dreams.updateDream); // Unused now
     const deleteDream = useMutation(api.dreams.deleteDream);
-    const analyzeDream = useAction(api.ai.analyzeDream);
-
-    // Handle Edit
-    const handleEditPress = () => {
-        if (dream) {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            setEditedText(dream.text);
-            setIsEditModalVisible(true);
-        }
-    };
-
-    const handleSaveEdit = async () => {
-        if (!dream || !editedText.trim()) {
-            Toast.show({
-                type: 'error',
-                text1: 'Error',
-                text2: 'Dream text cannot be empty',
-            });
-            return;
-        }
-
-        try {
-            setIsSubmitting(true);
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-            // Update the dream
-            await updateDream({
-                id: dream._id,
-                text: editedText.trim(),
-            });
-
-            setIsEditModalVisible(false);
-
-            // Ask if user wants to re-analyze
-            Alert.alert(
-                "Re-analyze Dream?",
-                "Would you like Lumi to analyze your edited dream?",
-                [
-                    {
-                        text: "No",
-                        style: "cancel",
-                        onPress: () => {
-                            Toast.show({
-                                type: 'success',
-                                text1: 'Dream Updated',
-                                text2: 'Your dream has been saved',
-                            });
-                        }
-                    },
-                    {
-                        text: "Yes",
-                        onPress: async () => {
-                            try {
-                                await analyzeDream({
-                                    dreamId: dream._id,
-                                    text: editedText.trim(),
-                                });
-                                Toast.show({
-                                    type: 'success',
-                                    text1: 'Dream Updated',
-                                    text2: 'Lumi is analyzing your dream...',
-                                });
-                            } catch (error) {
-                                Toast.show({
-                                    type: 'error',
-                                    text1: 'Analysis Failed',
-                                    text2: 'Could not re-analyze dream',
-                                });
-                            }
-                        }
-                    }
-                ]
-            );
-        } catch (error) {
-            Toast.show({
-                type: 'error',
-                text1: 'Error',
-                text2: 'Failed to update dream',
-            });
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
+    // const analyzeDream = useAction(api.ai.analyzeDream); // Unused now
 
     // Handle Delete
     const handleDeletePress = () => {
@@ -163,53 +75,7 @@ export default function DreamDetailScreen() {
         router.back();
     };
 
-    const handleShare = async () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-        if (!dream || !dream.interpretation) {
-            Alert.alert("Not Ready", "Please wait for Lumi to finish analyzing your dream.");
-            return;
-        }
-
-        setIsSharing(true);
-
-        try {
-            // Extract first 2 sentences from interpretation
-            const sentences = dream.interpretation.match(/[^.!?]+[.!?]+/g) || [];
-            const excerpt = sentences.slice(0, 2).join(' ').trim();
-
-            // Get top 3 symbols
-            const topSymbols = dream.symbols?.slice(0, 3) || [];
-
-            // Format the shareable text
-            const shareText = `🌙 Dream from ${new Date(dream.createdAt).toLocaleDateString()}
-
-"${dream.text}"
-
-✨ Lumi's Insight:
-${excerpt}
-
-🔮 Symbols: ${topSymbols.join(', ')}
-
-Interpreted by Lumi 🌙
-Your bioluminescent dream journal`;
-
-            // Use native Share API
-            const result = await Share.share({
-                message: shareText,
-                title: 'My Dream Interpretation'
-            });
-
-            if (result.action === Share.sharedAction) {
-                // Shared successfully
-                showSuccessToast('Dream shared successfully');
-            }
-        } catch (error) {
-            showErrorToast('Unable to share your dream at this time');
-        } finally {
-            setIsSharing(false);
-        }
-    };
 
     if (dream === undefined) {
         return (
@@ -449,63 +315,7 @@ Your bioluminescent dream journal`;
 
                 </View>
 
-                {/* Edit Modal */}
-                <Modal
-                    visible={isEditModalVisible}
-                    animationType="slide"
-                    transparent={true}
-                    onRequestClose={() => setIsEditModalVisible(false)}
-                >
-                    <View style={styles.modalOverlay}>
-                        <View style={styles.modalContent}>
-                            <View style={styles.modalHeader}>
-                                <Text style={styles.modalTitle}>Edit Dream</Text>
-                                <Pressable
-                                    onPress={() => setIsEditModalVisible(false)}
-                                    style={styles.closeButton}
-                                >
-                                    <X color="#fff" size={24} />
-                                </Pressable>
-                            </View>
 
-                            <TextInput
-                                style={styles.textInput}
-                                value={editedText}
-                                onChangeText={setEditedText}
-                                multiline
-                                placeholder="Write your dream here..."
-                                placeholderTextColor="rgba(255,255,255,0.3)"
-                                autoFocus
-                                editable={!isSubmitting}
-                            />
-
-                            <View style={styles.modalActions}>
-                                <Pressable
-                                    style={[styles.modalButton, styles.cancelButton]}
-                                    onPress={() => setIsEditModalVisible(false)}
-                                    disabled={isSubmitting}
-                                >
-                                    <Text style={styles.cancelButtonText}>Cancel</Text>
-                                </Pressable>
-
-                                <Pressable
-                                    style={[styles.modalButton, styles.saveButton, isSubmitting && styles.saveButtonDisabled]}
-                                    onPress={handleSaveEdit}
-                                    disabled={isSubmitting}
-                                >
-                                    {isSubmitting ? (
-                                        <ActivityIndicator color="#030014" size="small" />
-                                    ) : (
-                                        <>
-                                            <Check color="#030014" size={18} />
-                                            <Text style={styles.saveButtonText}>Save</Text>
-                                        </>
-                                    )}
-                                </Pressable>
-                            </View>
-                        </View>
-                    </View>
-                </Modal>
             </ScrollView>
         </View>
     );
@@ -831,125 +641,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontFamily: FONTS.body.medium,
     },
-    // Action Button Styles
-    actionRow: {
-        flexDirection: 'row',
-        gap: 12,
-        marginBottom: 24,
-    },
-    editButton: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        paddingVertical: 14,
-        paddingHorizontal: 20,
-        backgroundColor: 'rgba(186, 242, 187, 0.1)',
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(186, 242, 187, 0.3)',
-    },
-    editButtonText: {
-        color: '#A78BFA',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    deleteButton: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        paddingVertical: 14,
-        paddingHorizontal: 20,
-        backgroundColor: 'rgba(255, 107, 107, 0.1)',
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 107, 107, 0.3)',
-    },
-    deleteButtonText: {
-        color: '#FF6B6B',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    // Modal Styles
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(3, 0, 20, 0.95)',
-        justifyContent: 'flex-end',
-    },
-    modalContent: {
-        backgroundColor: '#030014',
-        borderTopLeftRadius: 32,
-        borderTopRightRadius: 32,
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.1)',
-        padding: 24,
-        minHeight: '80%',
-    },
-    modalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 24,
-    },
-    modalTitle: {
-        color: '#fff',
-        fontSize: 24,
-        fontWeight: 'bold',
-        fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
-    },
-    closeButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    textInput: {
-        flex: 1,
-        color: '#fff',
-        fontSize: 18,
-        lineHeight: 28,
-        fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
-        textAlignVertical: 'top',
-        marginBottom: 24,
-    },
-    modalActions: {
-        flexDirection: 'row',
-        gap: 12,
-    },
-    modalButton: {
-        flex: 1,
-        paddingVertical: 16,
-        paddingHorizontal: 24,
-        borderRadius: 16,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    cancelButton: {
-        backgroundColor: 'rgba(255,255,255,0.1)',
-    },
-    cancelButtonText: {
-        color: 'rgba(255,255,255,0.7)',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    saveButton: {
-        backgroundColor: '#A78BFA',
-        flexDirection: 'row',
-        gap: 8,
-    },
-    saveButtonDisabled: {
-        opacity: 0.6,
-    },
-    saveButtonText: {
-        color: '#030014',
-        fontSize: 16,
-        fontWeight: '600',
-    },
+
     footerActions: {
         marginTop: 40,
         paddingTop: 32,

@@ -31,29 +31,20 @@ export const saveDream = mutation({
             .first();
 
         if (user) {
-            const currentXp = user.xp ?? 0;
-            const currentLevel = user.level ?? 1;
-            const newXp = currentXp + 10; // Award 10 XP
-
-            // Simple Level Up Logic: Level up every 100 XP
-            const nextLevelXp = currentLevel * 100;
-            const newLevel = newXp >= nextLevelXp ? currentLevel + 1 : currentLevel;
-
-            // Robust Streak Recalculation
+            // --- 1. Robust Streak Calculation ---
             const allDreams = await ctx.db
                 .query("dreams")
                 .withIndex("by_user", (q) => q.eq("userId", args.userId))
                 .collect();
 
-            // Include the newly inserted dream (it might not be in the query yet depending on transaction state, 
-            // but db.insert is usually immediately visible in the same handler)
+            // Include the newly inserted dream (it might not be in the query yet depending on transaction state)
             const dates = allDreams.map(d => {
                 const date = new Date(d.createdAt);
                 date.setHours(0, 0, 0, 0);
                 return date.getTime();
             });
 
-            // Add current dream date just in case it's not yet in the query
+            // Add current dream date just in case
             const curDate = new Date(createdAt ?? Date.now());
             curDate.setHours(0, 0, 0, 0);
             dates.push(curDate.getTime());
@@ -66,7 +57,7 @@ export const saveDream = mutation({
                 today.setHours(0, 0, 0, 0);
                 const yesterday = today.getTime() - 86400000;
 
-                // Only start streak if last entry is today or yesterday
+                // Only start counting streak from today or yesterday
                 if (sortedUniqueDates[0] === today.getTime() || sortedUniqueDates[0] === yesterday) {
                     newStreak = 1;
                     let currentCheck = sortedUniqueDates[0];
@@ -82,8 +73,36 @@ export const saveDream = mutation({
                 }
             }
 
+            // --- 2. Gamified XP & Leveling ---
+            let xpGained = 50; // Base XP for recording a dream
+
+            // Streak Bonus (Consistency Reward)
+            if (newStreak >= 3) {
+                xpGained += 15;
+            }
+
+            const currentXp = user.xp ?? 0;
+            const currentLevel = user.level ?? 1;
+            const newTotalXp = currentXp + xpGained;
+
+            // Quadratic Leveling Curve: 
+            // Level 1: 0 - 100
+            // Level 2: 100 - 400 (300 delta)
+            // Level 3: 400 - 900 (500 delta)
+            // Formula for threshold to NEXT level: 100 * (currentLevel ^ 2)
+            const nextLevelThreshold = 100 * Math.pow(currentLevel, 2);
+
+            // Check for level up
+            // Note: In a pure quadratic system, total XP required for level L is often calculated differently,
+            // but here we use the threshold as the "cap" of the current level.
+            // If accumulated XP exceeds the cap, we level up.
+            // A simpler RPG formula is often: Level = floor(const * sqrt(XP))
+            // Let's stick to the threshold logic for control.
+
+            const newLevel = newTotalXp >= nextLevelThreshold ? currentLevel + 1 : currentLevel;
+
             await ctx.db.patch(user._id, {
-                xp: newXp,
+                xp: newTotalXp,
                 level: newLevel,
                 lastEntryDate: createdAt ?? Date.now(),
                 streak: newStreak,
