@@ -17,6 +17,6 @@ config.resolver.nodeModulesPaths = [
 ];
 
 // 3. Force Metro to resolve (sub)dependencies from the `nodeModulesPaths`
-config.resolver.disableHierarchicalLookup = true;
+// config.resolver.disableHierarchicalLookup = true; // Removed to comply with expo-doctor recommendations
 
 module.exports = config;

@@ -28,9 +28,9 @@
     "@vitest/ui": "^4.0.18",
     "convex-test": "^0.0.41",
     "prettier": "^3.0.0",
-    "react": "19.1.4",
-    "react-dom": "19.1.4",
-    "react-test-renderer": "19.1.4",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-test-renderer": "19.1.0",
     "turbo": "^2.0.0",
     "typescript": "^5.0.0",
     "vitest": "^4.0.18"
