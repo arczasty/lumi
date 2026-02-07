@@ -1,9 +1,36 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
+import { CONFIG } from "./lib/config";
 
 export const generateUploadUrl = mutation(async (ctx) => {
     return await ctx.storage.generateUploadUrl();
+});
+
+export const getUsageStatus = query({
+    args: { userId: v.string() },
+    handler: async (ctx, args) => {
+        const user = await ctx.db
+            .query("users")
+            .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
+            .first();
+
+        const isPro = user?.subscriptionTier === "pro";
+        const limit = 10;
+        const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+        const recentDreams = await ctx.db
+            .query("dreams")
+            .withIndex("by_user", (q) => q.eq("userId", args.userId))
+            .filter((q) => q.gt(q.field("createdAt"), sevenDaysAgo))
+            .collect();
+
+        return {
+            isPro,
+            count: recentDreams.length,
+            limit: limit,
+            canRecord: isPro || recentDreams.length < limit
+        };
+    },
 });
 
 export const saveDream = mutation({
@@ -17,6 +44,29 @@ export const saveDream = mutation({
         createdAt: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
+        // Enforce Usage Limits
+        const user = await ctx.db
+            .query("users")
+            .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
+            .first();
+
+        if (!user) throw new Error("User not found");
+
+        const isPro = user.subscriptionTier === CONFIG.SUBSCRIPTION_TIERS.PRO;
+
+        if (!isPro) {
+            const sevenDaysAgo = Date.now() - CONFIG.INTERVALS.SEVEN_DAYS;
+            const recentDreams = await ctx.db
+                .query("dreams")
+                .withIndex("by_user", (q) => q.eq("userId", args.userId))
+                .filter((q) => q.gt(q.field("createdAt"), sevenDaysAgo))
+                .collect();
+
+            if (recentDreams.length >= CONFIG.FREE_WEEKLY_LIMIT) {
+                throw new Error(`SANCTUARY_FULL: You've reached your free weekly limit of ${CONFIG.FREE_WEEKLY_LIMIT} dreams. Upgrade to unlock unlimited reflections.`);
+            }
+        }
+
         const { createdAt, ...data } = args;
         const dreamId = await ctx.db.insert("dreams", {
             ...data,
@@ -25,11 +75,6 @@ export const saveDream = mutation({
         });
 
         // Gamification Logic: Award XP
-        const user = await ctx.db
-            .query("users")
-            .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
-            .first();
-
         if (user) {
             // --- 1. Robust Streak Calculation ---
             const allDreams = await ctx.db
@@ -74,11 +119,11 @@ export const saveDream = mutation({
             }
 
             // --- 2. Gamified XP & Leveling ---
-            let xpGained = 50; // Base XP for recording a dream
+            let xpGained = CONFIG.XP.BASE_ENTRY; // Base XP for recording a dream
 
             // Streak Bonus (Consistency Reward)
             if (newStreak >= 3) {
-                xpGained += 15;
+                xpGained += CONFIG.XP.STREAK_BONUS;
             }
 
             const currentXp = user.xp ?? 0;
@@ -90,7 +135,7 @@ export const saveDream = mutation({
             // Level 2: 100 - 400 (300 delta)
             // Level 3: 400 - 900 (500 delta)
             // Formula for threshold to NEXT level: 100 * (currentLevel ^ 2)
-            const nextLevelThreshold = 100 * Math.pow(currentLevel, 2);
+            const nextLevelThreshold = CONFIG.XP.THRESHOLD_MULTIPLIER * Math.pow(currentLevel, 2);
 
             // Check for level up
             // Note: In a pure quadratic system, total XP required for level L is often calculated differently,
@@ -286,5 +331,57 @@ export const getUserDiscoveries = query({
             archetypes,
             emotions,
         };
+    },
+});
+export const createPreAuthDream = mutation({
+    args: { text: v.string() },
+    handler: async (ctx, args) => {
+        return await ctx.db.insert("pre_auth_dreams", {
+            text: args.text,
+            createdAt: Date.now(),
+            imageStatus: "pending",
+        });
+    },
+});
+
+export const claimPreAuthDream = mutation({
+    args: {
+        preAuthId: v.id("pre_auth_dreams"),
+        userId: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const preAuth = await ctx.db.get(args.preAuthId);
+        if (!preAuth) return null;
+
+        // Create the real dream record
+        const dreamId = await ctx.db.insert("dreams", {
+            userId: args.userId,
+            text: preAuth.text,
+            interpretation: preAuth.interpretation,
+            sentiment: preAuth.sentiment,
+            secondary_sentiments: preAuth.secondary_sentiments,
+            symbols: preAuth.symbols,
+            archetypes: preAuth.archetypes,
+            lumi_quote: preAuth.lumi_quote,
+            guidance: preAuth.guidance,
+            dreamSymbols: preAuth.dreamSymbols,
+            dreamArchetypes: preAuth.dreamArchetypes,
+            dreamEmotions: preAuth.dreamEmotions,
+            imageUrl: preAuth.imageUrl,
+            storageId: preAuth.storageId,
+            imageStatus: preAuth.imageStatus,
+            imageRetryCount: preAuth.imageRetryCount,
+            imageLastAttempt: preAuth.imageLastAttempt,
+            createdAt: Date.now(),
+        });
+
+        // Clean up
+        await ctx.db.delete(args.preAuthId);
+
+        // Deduplicate symbols/archetypes/emotions logic could be added here if needed, 
+        // but analyzeDream action usually handles that when triggered on a real dream.
+        // For now, simple claim is enough.
+
+        return dreamId;
     },
 });

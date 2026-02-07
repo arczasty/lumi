@@ -34,11 +34,11 @@ describe('SanctuaryBackground', () => {
   });
 
   it('applies sanctuary background styling', () => {
-    const { container } = render(
+    const component = render(
       <SanctuaryBackground>
         <Text>Content</Text>
       </SanctuaryBackground>
     );
-    expect(container).toBeTruthy();
+    expect(component).toBeTruthy();
   });
 });

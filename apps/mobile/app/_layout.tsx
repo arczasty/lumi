@@ -6,7 +6,9 @@ import { useEffect } from "react";
 import "react-native-reanimated";
 import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
-import { ConvexReactClient } from "convex/react";
+import { ConvexReactClient, useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { APP_CONFIG } from "@/constants/Config";
 import { tokenCache } from "../lib/cache";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { LumiLoader } from "@/components/SanctuaryUI/LumiLoader";
@@ -29,7 +31,7 @@ import {
   Nunito_700Bold,
 } from "@expo-google-fonts/nunito";
 
-const CONVEX_URL = process.env.EXPO_PUBLIC_CONVEX_URL_DEV || process.env.EXPO_PUBLIC_CONVEX_URL;
+const CONVEX_URL = process.env.EXPO_PUBLIC_CONVEX_URL_PROD || process.env.EXPO_PUBLIC_CONVEX_URL_DEV || process.env.EXPO_PUBLIC_CONVEX_URL;
 if (!CONVEX_URL) {
   console.error("❌ Convex: Missing EXPO_PUBLIC_CONVEX_URL_DEV or EXPO_PUBLIC_CONVEX_URL in .env.local");
 }
@@ -63,25 +65,40 @@ const LumiTheme = {
 };
 
 function RootLayoutNav() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, userId } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+
+  const user = useQuery(api.users.getUser, userId ? { userId } : "skip");
 
   useEffect(() => {
     if (!isLoaded) return;
 
-    const inAuthGroup = segments[0] === "(tabs)";
+    // If signed in, we must wait for the user query to determine onboarding status
+    if (isSignedIn && user === undefined) return;
 
-    // For MVP: Allow guest access, but you can enable this later for auth requirement
-    // Uncomment below to require authentication:
-    /*
-    if (isSignedIn && !inAuthGroup) {
-      router.replace("/(tabs)");
-    } else if (!isSignedIn && inAuthGroup) {
-      router.replace("/onboarding");
+    const inOnboardingGroup = segments[0] === "onboarding";
+
+    if (!isSignedIn) {
+      if (!inOnboardingGroup) {
+        router.replace("/onboarding");
+      }
+    } else {
+      // Signed in logic
+      const isOnboardingComplete = user?.onboardingStatus === APP_CONFIG.STATUS.ONBOARDING_COMPLETED;
+
+      if (!isOnboardingComplete && !inOnboardingGroup) {
+        router.replace("/onboarding/intent");
+      }
     }
-    */
-  }, [isLoaded, isSignedIn, segments]);
+  }, [isLoaded, isSignedIn, segments, user]);
+
+  // Handle analytics identity separately
+  useEffect(() => {
+    if (isSignedIn && userId) {
+      posthog.identify(userId);
+    }
+  }, [isSignedIn, userId]);
 
   if (!isLoaded) {
     return <LumiLoader />;

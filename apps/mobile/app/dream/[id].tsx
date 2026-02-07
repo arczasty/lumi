@@ -14,6 +14,7 @@ import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { getSentimentColor } from "@/utils/colors";
 import { LumiLoader } from "@/components/SanctuaryUI/LumiLoader";
+import { SanctuaryBackground } from "@/components/SanctuaryUI/Background";
 import { showSuccessToast, showErrorToast } from "@/lib/toast";
 import { FONTS, PURPLE, BACKGROUND, TEXT, BORDER, SHADOW, TYPOGRAPHY } from "@/constants/Theme";
 import { LinearGradient } from "expo-linear-gradient";
@@ -79,10 +80,9 @@ export default function DreamDetailScreen() {
 
     if (dream === undefined) {
         return (
-            <View style={[styles.container, styles.center]}>
-                <ActivityIndicator size="large" color="#A78BFA" />
-                <Text style={styles.loadingText}>Retrieving memory...</Text>
-            </View>
+            <SanctuaryBackground>
+                <LumiLoader />
+            </SanctuaryBackground>
         );
     }
 

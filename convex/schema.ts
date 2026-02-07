@@ -130,4 +130,44 @@ export default defineSchema({
         .index("by_user", ["userId"])
         .index("by_event_type", ["eventType"])
         .index("by_created", ["createdAt"]),
+
+    pre_auth_dreams: defineTable({
+        text: v.string(),
+        interpretation: v.optional(v.string()),
+        sentiment: v.optional(v.string()),
+        secondary_sentiments: v.optional(v.array(v.string())),
+        symbols: v.optional(v.array(v.string())),
+        archetypes: v.optional(v.array(v.string())),
+        lumi_quote: v.optional(v.string()),
+        guidance: v.optional(v.string()),
+        // Structured Symbols
+        dreamSymbols: v.optional(v.array(v.object({
+            symbolId: v.id("symbols"),
+            name: v.string(),
+            context: v.string(),
+        }))),
+        // Structured Archetypes
+        dreamArchetypes: v.optional(v.array(v.object({
+            archetypeId: v.id("archetypes"),
+            name: v.string(),
+            context: v.string(),
+        }))),
+        // Structured Emotions
+        dreamEmotions: v.optional(v.array(v.object({
+            emotionId: v.id("emotions"),
+            name: v.string(),
+            context: v.string(),
+        }))),
+        imageUrl: v.optional(v.string()),
+        storageId: v.optional(v.id("_storage")),
+        imageStatus: v.optional(v.union(
+            v.literal("pending"),
+            v.literal("generating"),
+            v.literal("completed"),
+            v.literal("failed")
+        )),
+        imageRetryCount: v.optional(v.number()),
+        imageLastAttempt: v.optional(v.number()),
+        createdAt: v.number(),
+    }).index("by_created", ["createdAt"]),
 });

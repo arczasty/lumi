@@ -17,6 +17,7 @@ import { getSentimentColor } from "@/utils/colors";
 import { Moon } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { FONTS } from "@/constants/Theme";
+import { RecordFirstDream } from "@/components/EmptyStates/RecordFirstDream";
 
 const { width } = Dimensions.get("window");
 
@@ -182,45 +183,7 @@ export default function JournalScreen() {
               <DreamListSkeleton count={3} />
             </View>
           ) : !userId || !dreams || dreams.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <MotiView
-                from={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ type: "spring", duration: 800 }}
-                style={styles.emptyIconContainer}
-              >
-                <Moon size={64} color="#A78BFA" strokeWidth={1.5} />
-              </MotiView>
-
-              <MotiView
-                from={{ opacity: 0, translateY: 20 }}
-                animate={{ opacity: 1, translateY: 0 }}
-                transition={{ type: "timing", duration: 600, delay: 300 }}
-              >
-                <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                  Your Sanctuary Awaits
-                </Text>
-                <Text style={[styles.emptyText, { color: colors.text }]}>
-                  Begin your journey with Lumi by recording your first dream
-                </Text>
-              </MotiView>
-              <MotiView
-                from={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ type: "spring", duration: 500, delay: 600 }}
-              >
-                <Pressable
-                  style={[styles.ctaButton, { backgroundColor: "#A78BFA" }]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    router.push("/record");
-                  }}
-                >
-                  <Plus size={20} color="#030014" />
-                  <Text style={styles.ctaButtonText}>Record Your First Dream</Text>
-                </Pressable>
-              </MotiView>
-            </View>
+            <RecordFirstDream />
           ) : (
             <FlatList
               data={filteredDreams}

@@ -25,7 +25,7 @@ const ANDROID_API_KEY = process.env.EXPO_PUBLIC_RC_ANDROID;
 export async function initializeRevenueCat(): Promise<void> {
     // Set log level for debugging (reduce in production)
     if (__DEV__) {
-        Purchases.setLogLevel(LOG_LEVEL.VERBOSE);
+        Purchases.setLogLevel(LOG_LEVEL.DEBUG);
     } else {
         Purchases.setLogLevel(LOG_LEVEL.ERROR);
     }

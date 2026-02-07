@@ -19,34 +19,34 @@ export const SanctuaryBackground = ({ children }: { children: ReactNode }) => {
 
             {/* Skia Ambient Light Orbs */}
             <Canvas style={StyleSheet.absoluteFill}>
-                {/* Top Right Teal/Violet Glow - "Hope" (Stronger) */}
-                <Circle cx={width * 0.8} cy={height * 0.15} r={width * 1.0} opacity={0.5}>
+                {/* Top Right Teal/Violet Glow - "Hope" */}
+                <Circle cx={width * 0.9} cy={height * 0.1} r={width * 1.5} opacity={0.4}>
                     <RadialGradient
-                        c={vec(width * 0.8, height * 0.15)}
-                        r={width * 1.0}
+                        c={vec(width * 0.9, height * 0.1)}
+                        r={width * 1.5}
                         colors={["#A78BFA", "transparent"]}
                     />
-                    <Blur blur={90} />
+                    <Blur blur={120} />
                 </Circle>
 
-                {/* Bottom Left Indigo/Blue Glow - "Depth" (Stronger) */}
-                <Circle cx={0} cy={height * 0.85} r={width * 1.2} opacity={0.6}>
+                {/* Bottom Left Indigo/Blue Glow - "Depth" */}
+                <Circle cx={-width * 0.1} cy={height * 0.9} r={width * 2.0} opacity={0.5}>
                     <RadialGradient
-                        c={vec(0, height * 0.85)}
-                        r={width * 1.2}
+                        c={vec(-width * 0.1, height * 0.9)}
+                        r={width * 2.0}
                         colors={["#4F46E5", "transparent"]}
                     />
-                    <Blur blur={110} />
+                    <Blur blur={140} />
                 </Circle>
 
-                {/* Center Ambient Glow to kill the void */}
-                <Circle cx={width * 0.5} cy={height * 0.5} r={width * 0.8} opacity={0.15}>
+                {/* Wide Center Ambient Glow */}
+                <Circle cx={width * 0.5} cy={height * 0.5} r={width * 2.0} opacity={0.1}>
                     <RadialGradient
                         c={vec(width * 0.5, height * 0.5)}
-                        r={width * 0.8}
+                        r={width * 2.0}
                         colors={["#6366F1", "transparent"]}
                     />
-                    <Blur blur={120} />
+                    <Blur blur={150} />
                 </Circle>
             </Canvas>
 
@@ -58,6 +58,7 @@ export const SanctuaryBackground = ({ children }: { children: ReactNode }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        width: '100%',
         backgroundColor: '#0A0520', // Deep Midnight
     }
 });

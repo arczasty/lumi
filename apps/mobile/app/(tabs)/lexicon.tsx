@@ -7,13 +7,16 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { BlurView } from "expo-blur";
-import { Search, Sparkles, Filter, BookOpen, User, Heart, X, Moon } from "lucide-react-native";
+import { Search, Sparkles, Filter, BookOpen, User, Heart, X, Moon, Plus } from "lucide-react-native";
 import { MotiView, MotiText, AnimatePresence } from "moti";
 import { FONTS, PURPLE, BACKGROUND, TEXT, BORDER, SHADOW, TYPOGRAPHY } from "@/constants/Theme";
 import { LumiLoader } from "@/components/SanctuaryUI/LumiLoader";
 import * as Haptics from "expo-haptics";
 import { useUser } from "@clerk/clerk-expo";
 import { LinearGradient } from "expo-linear-gradient";
+import { useIsProUser } from "@/contexts/RevenueCatContext";
+import { Lock } from "lucide-react-native";
+import { RecordFirstDream } from "@/components/EmptyStates/RecordFirstDream";
 
 type LexiconItem = {
     _id: string;
@@ -26,10 +29,12 @@ type LexiconItem = {
 
 export default function LexiconScreen() {
     const { user: clerkUser } = useUser();
+    const router = useRouter();
     const { search } = useLocalSearchParams<{ search?: string }>();
 
     // Fetch only user-encountered items with user-specific counts
     const discoveries = useQuery(api.dreams.getUserDiscoveries, clerkUser?.id ? { userId: clerkUser.id } : "skip");
+    const isProUser = useIsProUser();
 
     const symbols = discoveries?.symbols;
     const archetypes = discoveries?.archetypes;
@@ -70,19 +75,24 @@ export default function LexiconScreen() {
         });
     }, [allItems, searchQuery, selectedType]);
 
-    const handleItemPress = (item: LexiconItem) => {
+    const handleItemPress = (item: LexiconItem, index: number) => {
+        const isLocked = !isProUser && index >= 5;
+        if (isLocked) {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            router.push('/onboarding/paywall'); // Show paywall
+            return;
+        }
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         setSelectedItem(item);
     };
 
     if (discoveries === undefined) {
         return (
-            <SanctuaryBackground>
-                <View style={styles.center}>
+            <View style={{ flex: 1 }}>
+                <SanctuaryBackground>
                     <LumiLoader />
-                    <Text style={styles.loadingText}>Accessing Collective Unconscious...</Text>
-                </View>
-            </SanctuaryBackground>
+                </SanctuaryBackground>
+            </View>
         );
     }
 
@@ -171,55 +181,81 @@ export default function LexiconScreen() {
                     keyExtractor={(item) => `${item.type}-${item._id}`}
                     contentContainerStyle={styles.listContent}
                     showsVerticalScrollIndicator={false}
-                    renderItem={({ item, index }) => (
-                        <MotiView
-                            from={{ opacity: 0, translateY: 20 }}
-                            animate={{ opacity: 1, translateY: 0 }}
-                            transition={{ delay: index * 40 }}
-                        >
-                            <Pressable
-                                style={styles.card}
-                                onPress={() => handleItemPress(item)}
+                    renderItem={({ item, index }) => {
+                        const isLocked = !isProUser && index >= 5;
+                        return (
+                            <MotiView
+                                from={{ opacity: 0, translateY: 20 }}
+                                animate={{ opacity: 1, translateY: 0 }}
+                                transition={{ delay: index * 40 }}
                             >
-                                <View style={styles.cardHeader}>
-                                    <View style={styles.nameRow}>
-                                        <View style={[styles.typeMiniIcon, { backgroundColor: `${getTypeColor(item.type)}20` }]}>
-                                            {getTypeIcon(item.type, 12, getTypeColor(item.type))}
+                                <Pressable
+                                    style={[styles.card, isLocked && styles.cardLocked]}
+                                    onPress={() => handleItemPress(item, index)}
+                                >
+                                    <View style={styles.cardHeader}>
+                                        <View style={styles.nameRow}>
+                                            <View style={[styles.typeMiniIcon, { backgroundColor: `${getTypeColor(item.type)}20` }]}>
+                                                {getTypeIcon(item.type, 12, getTypeColor(item.type))}
+                                            </View>
+                                            <Text style={styles.itemName}>
+                                                {isLocked ? "Refined Wisdom" : item.name.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ')}
+                                            </Text>
                                         </View>
-                                        <Text style={styles.itemName}>
-                                            {item.name.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ')}
-                                        </Text>
+                                        {!isLocked && (
+                                            <View style={styles.usageBadge}>
+                                                <Sparkles size={10} color="#A78BFA" />
+                                                <Text style={styles.usageText}>{item.references}</Text>
+                                            </View>
+                                        )}
                                     </View>
-                                    <View style={styles.usageBadge}>
-                                        <Sparkles size={10} color="#A78BFA" />
-                                        <Text style={styles.usageText}>{item.references}</Text>
-                                    </View>
-                                </View>
 
-                                <Text style={styles.itemDescription} numberOfLines={2}>
-                                    {item.description}
-                                </Text>
+                                    <Text style={[styles.itemDescription, isLocked && { opacity: 0.2 }]} numberOfLines={2}>
+                                        {isLocked ? "This deep subconscious connection is currently drifting in the fog. Unlock the full sanctuary to clear its message." : item.description}
+                                    </Text>
 
-                                <View style={styles.cardFooter}>
-                                    <View style={styles.typeTag}>
-                                        <Text style={[styles.typeTagText, { color: getTypeColor(item.type) }]}>
-                                            {item.type.toUpperCase()}
-                                        </Text>
+                                    <View style={styles.cardFooter}>
+                                        <View style={styles.typeTag}>
+                                            <Text style={[styles.typeTagText, { color: getTypeColor(item.type) }]}>
+                                                {item.type.toUpperCase()}
+                                            </Text>
+                                        </View>
+                                        {item.category && !isLocked && (
+                                            <View style={styles.categoryTag}>
+                                                <Text style={styles.categoryTagText}>{item.category}</Text>
+                                            </View>
+                                        )}
                                     </View>
-                                    {item.category && (
-                                        <View style={styles.categoryTag}>
-                                            <Text style={styles.categoryTagText}>{item.category}</Text>
+
+                                    {isLocked && (
+                                        <View style={styles.lockOverlay}>
+                                            <BlurView intensity={12} tint="dark" style={StyleSheet.absoluteFill} />
+                                            <View style={styles.proBadgeFloating}>
+                                                <View style={styles.proBadgeMini}>
+                                                    <Text style={styles.proBadgeMiniText}>PRO</Text>
+                                                </View>
+                                            </View>
+                                            <View style={styles.lockIconContainer}>
+                                                <Sparkles size={16} color="#A78BFA" />
+                                            </View>
                                         </View>
                                     )}
-                                </View>
-                            </Pressable>
-                        </MotiView>
-                    )}
+                                </Pressable>
+                            </MotiView>
+                        );
+                    }}
                     ListEmptyComponent={
-                        <View style={styles.emptyState}>
-                            <Moon size={40} color="rgba(255,255,255,0.1)" style={{ marginBottom: 12 }} />
-                            <Text style={styles.emptyText}>Nothing found in this realm yet.</Text>
-                        </View>
+                        allItems.length === 0 ? (
+                            <RecordFirstDream
+                                title="Your Lexicon is Silent"
+                                description="Record your dreams to discover the symbols, archetypes, and emotions hidden in your subconscious."
+                            />
+                        ) : (
+                            <View style={styles.emptyState}>
+                                <Moon size={40} color="rgba(255,255,255,0.1)" style={{ marginBottom: 12 }} />
+                                <Text style={styles.emptyText}>Nothing found in this realm yet.</Text>
+                            </View>
+                        )
                     }
                 />
 
@@ -307,7 +343,7 @@ export default function LexiconScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    center: { flex: 1, justifyContent: "center", alignItems: "center" },
+    center: { flex: 1, justifyContent: "center" },
     loadingText: { marginTop: 16, color: "rgba(255,255,255,0.5)", fontFamily: FONTS.body.regular },
 
     // Header
@@ -442,6 +478,12 @@ const styles = StyleSheet.create({
     },
     emptyState: { alignItems: 'center', paddingTop: 60, opacity: 0.5 },
     emptyText: { color: "#fff", fontFamily: FONTS.body.regular, fontStyle: 'italic', fontSize: 14 },
+    emptyTextCenter: { color: "rgba(255,255,255,0.6)", fontFamily: FONTS.body.regular, fontSize: 16, textAlign: "center", lineHeight: 24, marginBottom: 32 },
+    emptyTitle: { fontFamily: FONTS.heading.bold, fontSize: 28, color: '#fff', textAlign: 'center', marginBottom: 12 },
+    recordFirstContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 80, paddingHorizontal: 40 },
+    emptyIconContainer: { marginBottom: 24 },
+    ctaButton: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 24, paddingVertical: 14, borderRadius: 24, backgroundColor: "#A78BFA" },
+    ctaButtonText: { fontFamily: FONTS.body.semiBold, fontSize: 16, color: "#030014" },
 
     // Modal Styles
     modalOverlay: {
@@ -562,5 +604,44 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontFamily: FONTS.body.bold,
         fontSize: 15,
+    },
+    proBadgeMini: {
+        backgroundColor: 'rgba(167, 139, 250, 0.3)',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: 'rgba(167, 139, 250, 0.5)',
+    },
+    proBadgeMiniText: {
+        fontFamily: FONTS.body.bold,
+        fontSize: 10,
+        color: '#A78BFA',
+    },
+    proBadgeFloating: {
+        position: 'absolute',
+        top: 20,
+        right: 20,
+    },
+    cardLocked: {
+        opacity: 0.8,
+    },
+    lockOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.2)',
+        borderRadius: 20,
+        overflow: 'hidden',
+    },
+    lockIconContainer: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: 'rgba(0,0,0,0.4)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
     },
 });

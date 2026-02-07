@@ -24,7 +24,7 @@ export default function EntryScreen() {
 
     const dynamicPrompt = useMemo(() => {
         if (intent === 'shadow') {
-            return "Describe your last nightmare — what was chasing you?";
+            return "Describe the last dream you remember. What symbols or feelings linger?";
         }
         if (intent === 'mirror' || intent === 'control') {
             return "Describe the last dream you remember. What symbols appeared?";

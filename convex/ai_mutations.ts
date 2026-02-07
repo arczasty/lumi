@@ -8,7 +8,8 @@ import { v } from "convex/values";
 
 export const updateDreamResults = internalMutation({
     args: {
-        id: v.id("dreams"),
+        id: v.optional(v.id("dreams")),
+        preAuthId: v.optional(v.id("pre_auth_dreams")),
         text: v.optional(v.string()),
         interpretation: v.optional(v.string()),
         sentiment: v.optional(v.string()),
@@ -34,14 +35,19 @@ export const updateDreamResults = internalMutation({
         }))),
     },
     handler: async (ctx, args) => {
-        const { id, ...results } = args;
-        await ctx.db.patch(id, results);
+        const { id, preAuthId, ...results } = args;
+        if (id) {
+            await ctx.db.patch(id, results);
+        } else if (preAuthId) {
+            await ctx.db.patch(preAuthId, results);
+        }
     },
 });
 
 export const updateDreamImage = internalMutation({
     args: {
-        id: v.id("dreams"),
+        id: v.optional(v.id("dreams")),
+        preAuthId: v.optional(v.id("pre_auth_dreams")),
         imageUrl: v.optional(v.string()),
         storageId: v.optional(v.id("_storage")),
     },
@@ -53,13 +59,18 @@ export const updateDreamImage = internalMutation({
         if (args.imageUrl) updates.imageUrl = args.imageUrl;
         if (args.storageId) updates.storageId = args.storageId;
 
-        await ctx.db.patch(args.id, updates);
+        if (args.id) {
+            await ctx.db.patch(args.id, updates);
+        } else if (args.preAuthId) {
+            await ctx.db.patch(args.preAuthId, updates);
+        }
     },
 });
 
 export const updateImageStatus = internalMutation({
     args: {
-        id: v.id("dreams"),
+        id: v.optional(v.id("dreams")),
+        preAuthId: v.optional(v.id("pre_auth_dreams")),
         status: v.union(
             v.literal("pending"),
             v.literal("generating"),
@@ -69,8 +80,12 @@ export const updateImageStatus = internalMutation({
         incrementRetry: v.optional(v.boolean()),
     },
     handler: async (ctx, args) => {
-        const dream = await ctx.db.get(args.id);
-        if (!dream) return;
+        const targetId = args.id || args.preAuthId;
+        if (!targetId) return;
+
+        const table = args.id ? "dreams" : "pre_auth_dreams";
+        const record = await ctx.db.get(targetId as any);
+        if (!record) return;
 
         const updates: Record<string, any> = {
             imageStatus: args.status,
@@ -78,10 +93,10 @@ export const updateImageStatus = internalMutation({
         };
 
         if (args.incrementRetry) {
-            updates.imageRetryCount = (dream.imageRetryCount || 0) + 1;
+            updates.imageRetryCount = ((record as any).imageRetryCount || 0) + 1;
         }
 
-        await ctx.db.patch(args.id, updates);
+        await ctx.db.patch(targetId as any, updates);
     },
 });
 

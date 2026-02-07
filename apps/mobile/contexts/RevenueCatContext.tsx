@@ -26,6 +26,7 @@ import {
     restorePurchases as restorePurchasesHelper,
 } from '@/lib/revenuecat';
 import { REVENUECAT_CONFIG } from '@/constants/revenuecat-config';
+import { APP_CONFIG } from '@/constants/Config';
 
 interface RevenueCatContextType {
     // State
@@ -65,7 +66,7 @@ export function RevenueCatProvider({ children }: RevenueCatProviderProps) {
     const [offerings, setOfferings] = useState<PurchasesOfferings | null>(null);
 
     // Derived state
-    const isProUser = hasProEntitlement(customerInfo);
+    const isProUser = APP_CONFIG.BYPASS_PRO_CHECK || hasProEntitlement(customerInfo);
     const currentPlan = getActiveSubscriptionPlan(customerInfo);
 
     /**

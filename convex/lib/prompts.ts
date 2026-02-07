@@ -114,9 +114,7 @@ IMPORTANT: sentiment MUST be EXACTLY one of: ${ALL_SENTIMENTS.join(', ')} `;
  * The prompt for Image Generation (Flux)
  */
 export const getImageGenerationPrompt = (dreamText: string): string => {
-    // Truncate to ensure prompt fits within limits (Flux usually handles ~77 tokens well, but longer descriptions work for Flux Pro)
-    // We limit the input text to keep the prompt focused.
-    const truncatedText = dreamText.slice(0, 300);
+    const truncatedText = dreamText.slice(0, 800);
     return `A cinematic, mystical shot of ${truncatedText}. The scene is set in a deep subconscious dreamscape. Atmospheric fog, volumetric lighting, bioluminescent details. Color palette: Midnight blue, electric violet, and deep indigo. Photorealistic but surreal, soft focus edges, 8k resolution, mysterious and evocative.`;
 };
 

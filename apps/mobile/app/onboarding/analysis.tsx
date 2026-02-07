@@ -1,31 +1,30 @@
 import React, { useEffect, useState, useRef } from "react";
-import { StyleSheet, View, ImageBackground, Dimensions, ScrollView, Pressable } from "react-native";
+import { StyleSheet, View, Dimensions, ScrollView, Pressable, Platform } from "react-native";
 import { Text } from "@/components/Themed";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { MotiView, MotiText } from "moti";
+import { MotiView, MotiText, AnimatePresence } from "moti";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Lock, Sparkles, ArrowRight, Share2 } from "lucide-react-native";
+import { Lock, Sparkles, ArrowRight, BrainCircuit, Activity, Waves } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { SanctuaryBackground } from "@/components/SanctuaryUI/Background";
 import { FONTS } from "@/constants/Theme";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import {
-    generateAnalysisPrompt,
-    normalizeSentiment,
-    getSentimentColors,
-    DreamAnalysisResult,
-    DreamSentiment
-} from "@/constants/AISchema";
+import { getSentimentColors } from "@/constants/AISchema";
+import { ONBOARDING_GLIMPSES } from "@/constants/OnboardingGlimpses";
 
-const { width } = Dimensions.get("window");
+import { useMutation, useAction } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
-// Loading messages for the analysis stage
-const LOADING_MESSAGES = [
-    "Consulting Archetype Database...",
-    "Decoding Symbol Patterns...",
-    "Analyzing Emotional Landscape...",
-    "Preparing Your Interpretation...",
+const { width, height } = Dimensions.get("window");
+
+type OnboardingAct = "MAPPING" | "REVEAL";
+
+const STATUS_MESSAGES = [
+    { title: "Isolating Frequencies", icon: Waves },
+    { title: "Consulting Archetypes", icon: BrainCircuit },
+    { title: "Mapping Subconscious", icon: Activity },
+    { title: "Preparing Synthesis", icon: Sparkles },
 ];
 
 export default function AnalysisScreen() {
@@ -39,96 +38,61 @@ export default function AnalysisScreen() {
         recall: string;
     }>();
 
-    const [loading, setLoading] = useState(true);
-    const [loadingMessage, setLoadingMessage] = useState(LOADING_MESSAGES[0]);
-    const [analysis, setAnalysis] = useState<DreamAnalysisResult | null>(null);
-    const [error, setError] = useState<string | null>(null);
-    const messageIndexRef = useRef(0);
+    const [act, setAct] = useState<OnboardingAct>("MAPPING");
+    const [statusIndex, setStatusIndex] = useState(0);
+    const [preAuthId, setPreAuthId] = useState<string | null>(null);
+
+    // Convex Operations
+    const createPreAuth = useMutation(api.dreams.createPreAuthDream);
+    const analyzeProactive = useAction(api.ai.analyzeDream);
+    const generateImageProactive = useAction(api.ai.generateDreamImage);
+
+    const analysisStarted = useRef(false);
+
+    // Get the synthetic glimpse based on intent
+    const glimpse = ONBOARDING_GLIMPSES[params.intent as string] || ONBOARDING_GLIMPSES.default;
+    const sentimentStyle = getSentimentColors(glimpse.sentiment);
 
     useEffect(() => {
-        // Cycle through loading messages
-        const messageInterval = setInterval(() => {
-            messageIndexRef.current = (messageIndexRef.current + 1) % LOADING_MESSAGES.length;
-            setLoadingMessage(LOADING_MESSAGES[messageIndexRef.current]);
-        }, 2000);
+        // Start Proactive Analysis immediately
+        const startProactiveFlow = async () => {
+            if (analysisStarted.current || !params.text) return;
+            analysisStarted.current = true;
 
-        // Perform the actual AI analysis
-        const analyzeTheDream = async () => {
             try {
-                // During onboarding, we don't have a userId yet, so we do a "preview" analysis
-                // The actual dream saving happens in auth-gate after authentication
+                // 1. Create the pre-auth skeleton
+                const id = await createPreAuth({ text: params.text });
+                setPreAuthId(id);
 
-                const dreamText = params.text || "";
-                const userIntent = params.intent || "curious";
-
-                // Call the AI directly for a preview (without saving to DB)
-                const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${process.env.EXPO_PUBLIC_OPENROUTER_API_KEY}`,
-                        "X-Title": "Lumi App - Onboarding Preview"
-                    },
-                    body: JSON.stringify({
-                        model: "google/gemini-2.0-flash-001",
-                        messages: [
-                            {
-                                role: "system",
-                                content: generateAnalysisPrompt(userIntent)
-                            },
-                            {
-                                role: "user",
-                                content: dreamText
-                            }
-                        ],
-                        response_format: { type: "json_object" }
-                    })
-                });
-
-                const data = await response.json();
-
-                if (data.error) {
-                    throw new Error(data.error.message || "Analysis failed");
-                }
-
-                const content = data.choices?.[0]?.message?.content;
-                if (!content) {
-                    throw new Error("Empty response from AI");
-                }
-
-                const rawResult = JSON.parse(content);
-
-                // Normalize result to ensure strict adherence to schema
-                const result: DreamAnalysisResult = {
-                    interpretation: rawResult.interpretation || "No interpretation provided.",
-                    sentiment: normalizeSentiment(rawResult.sentiment),
-                    symbols: Array.isArray(rawResult.symbols) ? rawResult.symbols.slice(0, 5) : [],
-                    lumi_quote: rawResult.lumi_quote || "Dreams reflect the hidden self."
-                };
-
-                setAnalysis(result);
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                // 2. Fire and forget AI actions in the background
+                // We don't await these because we want the UI to stay snappy
+                analyzeProactive({ preAuthId: id, text: params.text }).catch(e => console.error("Proactive analysis failed", e));
+                generateImageProactive({ preAuthId: id, dreamText: params.text }).catch(e => console.error("Proactive image failed", e));
 
             } catch (err) {
-                console.error("Analysis error:", err);
-                setError(String(err));
-                // Fallback to a basic analysis if AI fails
-                setAnalysis({
-                    interpretation: "Your dream contains rich symbolism waiting to be explored. The fragments you've shared hint at deeper currents flowing beneath your waking consciousness. By observing these patterns over time, you may find clearer guidance...",
-                    sentiment: "Mystery",
-                    symbols: ["Unknown", "Journey", "Transition"],
-                    lumi_quote: "Every dream is a doorway, waiting for the right key."
-                });
-            } finally {
-                setLoading(false);
-                clearInterval(messageInterval);
+                console.error("Failed to start proactive analysis", err);
             }
         };
 
-        analyzeTheDream();
+        startProactiveFlow();
 
-        return () => clearInterval(messageInterval);
-    }, [params.text, params.intent]);
+        // ACT 1: Cycling through status messages (Mapping)
+        const statusInterval = setInterval(() => {
+            setStatusIndex((prev) => (prev + 1) % STATUS_MESSAGES.length);
+        }, 800);
+
+        // Transition to ACT 2 (Reveal) after 3.2 seconds
+        const timer = setTimeout(() => {
+            setAct("REVEAL");
+            clearInterval(statusInterval);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }, 3200);
+
+        return () => {
+            clearInterval(statusInterval);
+            clearTimeout(timer);
+        };
+    }, [params.text]);
 
     const handleUnlock = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -136,160 +100,215 @@ export default function AnalysisScreen() {
             pathname: "/onboarding/auth-gate",
             params: {
                 ...params,
-                // Pass the analysis results so they can be saved after auth
-                analysisInterpretation: analysis?.interpretation,
-                analysisSentiment: analysis?.sentiment,
-                analysisSymbols: analysis?.symbols?.join(","),
-                analysisQuote: analysis?.lumi_quote
+                preAuthId: preAuthId || undefined
             }
         });
     };
 
-    // Generate a title from the first symbol or sentiment
-    const generateTitle = () => {
-        if (!analysis) return "Your Dream";
-        const firstSymbol = analysis.symbols?.[0] || "Dream";
-        return `The ${firstSymbol}`;
-    };
-
-    if (loading) {
-        return (
-            <SanctuaryBackground>
-                <View style={styles.loadingContainer}>
-                    <MotiView
-                        from={{ scale: 0.8, opacity: 0.5 }}
-                        animate={{ scale: 1.1, opacity: 1 }}
-                        transition={{ loop: true, type: "timing", duration: 1500 }}
-                    >
-                        <Sparkles size={64} color="#A78BFA" />
-                    </MotiView>
-                    <MotiText
-                        from={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 500 }}
-                        style={styles.loadingText}
-                    >
-                        {loadingMessage}
-                    </MotiText>
-                </View>
-            </SanctuaryBackground>
-        );
-    }
-
-    const sentimentStyle = getSentimentColors(analysis?.sentiment || "Mystery");
+    const StatusIcon = STATUS_MESSAGES[statusIndex].icon;
 
     return (
         <SanctuaryBackground>
             <View style={{ flex: 1 }}>
-                <ScrollView contentContainerStyle={[styles.scrollContainer, { paddingTop: insets.top + 24, paddingBottom: 100 + insets.bottom }]}>
+                <AnimatePresence exitBeforeEnter>
+                    {act === "MAPPING" ? (
+                        <MotiView
+                            key="mapping"
+                            style={styles.mappingContainer}
+                            from={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            transition={{ type: 'timing', duration: 1000 }}
+                        >
+                            <View style={styles.neuralCore}>
+                                <MotiView
+                                    animate={{
+                                        rotate: '360deg',
+                                        scale: [1, 1.2, 1],
+                                    }}
+                                    transition={{
+                                        rotate: { loop: true, duration: 4000, type: 'timing' },
+                                        scale: { loop: true, duration: 2000 },
+                                    }}
+                                    style={styles.neuralRing}
+                                />
+                                <MotiView
+                                    animate={{
+                                        opacity: [0.3, 0.7, 0.3],
+                                        scale: [0.9, 1.1, 0.9]
+                                    }}
+                                    transition={{ loop: true, duration: 2000 }}
+                                    style={styles.neuralPulse}
+                                />
+                                <StatusIcon size={40} color="#A78BFA" />
+                            </View>
 
-                    <MotiView
-                        from={{ opacity: 0, translateY: 20 }}
-                        animate={{ opacity: 1, translateY: 0 }}
-                        style={styles.header}
-                    >
-                        <Text style={styles.overline}>Pattern Detected</Text>
-                        <Text style={styles.title}>{generateTitle()}</Text>
-                    </MotiView>
+                            <MotiView
+                                key={statusIndex}
+                                from={{ opacity: 0, translateY: 10 }}
+                                animate={{ opacity: 1, translateY: 0 }}
+                                exit={{ opacity: 0, translateY: -10 }}
+                                transition={{ type: 'timing', duration: 400 }}
+                                style={styles.statusTextContainer}
+                            >
+                                <Text style={styles.statusText}>{STATUS_MESSAGES[statusIndex].title}</Text>
+                            </MotiView>
+                        </MotiView>
+                    ) : (
+                        <MotiView
+                            key="reveal"
+                            style={{ flex: 1 }}
+                            from={{ opacity: 0, scale: 1.1 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ type: 'timing', duration: 1000 }}
+                        >
+                            <ScrollView
+                                contentContainerStyle={[
+                                    styles.scrollContainer,
+                                    { paddingTop: insets.top + (height < 700 ? 10 : 24), paddingBottom: 100 + insets.bottom }
+                                ]}
+                                showsVerticalScrollIndicator={false}
+                            >
+                                <MotiView
+                                    from={{ opacity: 0, translateY: 20 }}
+                                    animate={{ opacity: 1, translateY: 0 }}
+                                    transition={{ delay: 200 }}
+                                    style={styles.header}
+                                >
+                                    <Text style={styles.overline}>Threshold Detected</Text>
+                                    <Text style={styles.title}>{glimpse.title}</Text>
+                                </MotiView>
 
-                    {/* Result Card */}
-                    <MotiView
-                        from={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: 300 }}
-                        style={styles.cardContainer}
-                    >
-                        {/* Visual Header */}
-                        <View style={styles.imagePlaceholder}>
-                            <LinearGradient
-                                colors={["#4338CA", "#312E81", "#1E1B4B"]}
-                                style={StyleSheet.absoluteFill}
-                            />
-                            <Sparkles size={48} color="rgba(255,255,255,0.2)" />
-                        </View>
-
-                        {/* Content */}
-                        <View style={styles.cardContent}>
-                            {/* Sentiment Tags */}
-                            <View style={styles.tagsRow}>
-                                <View style={[
-                                    styles.tag,
-                                    {
-                                        backgroundColor: sentimentStyle.bg,
-                                        borderColor: sentimentStyle.border,
-                                        borderWidth: 1
-                                    }
-                                ]}>
-                                    <Text style={[styles.tagText, { color: sentimentStyle.text }]}>
-                                        {analysis?.sentiment || "Mystery"}
-                                    </Text>
-                                </View>
-                                {analysis?.symbols?.slice(0, 2).map((symbol, idx) => (
-                                    <View key={idx} style={[styles.tag, { backgroundColor: "rgba(99, 102, 241, 0.1)", borderColor: "rgba(99, 102, 241, 0.2)", borderWidth: 1 }]}>
-                                        <Text style={[styles.tagText, { color: "#A5B4FC" }]}>{symbol}</Text>
+                                {/* Glimpse Card */}
+                                <MotiView
+                                    from={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    transition={{ delay: 500 }}
+                                    style={styles.cardContainer}
+                                >
+                                    {/* Visual Header - Archetype Indicator */}
+                                    <View style={styles.archetypeHeader}>
+                                        <LinearGradient
+                                            colors={["rgba(167, 139, 250, 0.2)", "rgba(3, 0, 20, 0.8)"]}
+                                            style={StyleSheet.absoluteFill}
+                                        />
+                                        <MotiView
+                                            animate={{ opacity: [0.4, 0.8, 0.4] }}
+                                            transition={{ loop: true, duration: 3000 }}
+                                        >
+                                            <Sparkles size={48} color="#A78BFA" />
+                                        </MotiView>
+                                        <Text style={styles.archetypeLabel}>{glimpse.archetype}</Text>
                                     </View>
-                                ))}
-                            </View>
 
-                            {/* Teaser Text - First part of interpretation */}
-                            <Text style={styles.analysisText}>
-                                {analysis?.interpretation?.substring(0, 200) || "Your dream contains fascinating symbolism..."}
-                                {(analysis?.interpretation?.length || 0) > 200 ? "..." : ""}
-                            </Text>
+                                    <View style={styles.cardContent}>
+                                        <View style={styles.tagsRow}>
+                                            <View style={[
+                                                styles.tag,
+                                                {
+                                                    backgroundColor: sentimentStyle.bg,
+                                                    borderColor: sentimentStyle.border,
+                                                    borderWidth: 1
+                                                }
+                                            ]}>
+                                                <Text style={[styles.tagText, { color: sentimentStyle.text }]}>
+                                                    {glimpse.sentiment}
+                                                </Text>
+                                            </View>
+                                            {glimpse.symbols.map((symbol, idx) => (
+                                                <View key={idx} style={styles.symbolTag}>
+                                                    <Text style={styles.symbolTagText}>{symbol}</Text>
+                                                </View>
+                                            ))}
+                                        </View>
 
-                            {/* Blurred Section - Rest of interpretation */}
-                            <View style={styles.blurContainer}>
-                                <Text style={styles.blurredText}>
-                                    {analysis?.interpretation?.substring(200) || analysis?.lumi_quote || "Unlock your full interpretation to discover deeper insights about your subconscious patterns and symbolic meanings..."}
-                                </Text>
-                                <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
-                                <View style={styles.lockOverlay}>
-                                    <Lock size={24} color="#A78BFA" />
-                                </View>
-                            </View>
-                        </View>
-                    </MotiView>
+                                        <Text style={styles.analysisText}>
+                                            {glimpse.interpretation}
+                                        </Text>
 
-                </ScrollView>
+                                        {/* Blurred Hook */}
+                                        <View style={styles.blurContainer}>
+                                            <View style={styles.quoteBox}>
+                                                <Text style={styles.quoteText}>"{glimpse.lumi_quote}"</Text>
+                                            </View>
+                                            <Text style={styles.blurredText}>
+                                                The specific fragments of your dream—the rising water, the house of glass, the silent observer—hold the key to this week's psychological transition. Deep synthesis is preparing your full report...
+                                            </Text>
+                                            <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+                                            <View style={styles.lockOverlay}>
+                                                <Lock size={20} color="#A78BFA" />
+                                            </View>
+                                        </View>
+                                    </View>
+                                </MotiView>
+                            </ScrollView>
 
-                {/* Floating Bottom Action */}
-                <MotiView
-                    from={{ opacity: 0, translateY: 50 }}
-                    animate={{ opacity: 1, translateY: 0 }}
-                    transition={{ delay: 800 }}
-                    style={[styles.footer, { paddingBottom: 24 + insets.bottom }]}
-                >
-                    <Pressable
-                        onPress={handleUnlock}
-                        style={styles.button}
-                    >
-                        <Lock size={20} color="#030014" style={{ marginRight: 8 }} />
-                        <Text style={styles.buttonText}>Unlock Full Interpretation & Save</Text>
-                        <ArrowRight size={20} color="#030014" style={{ marginLeft: 8 }} />
-                    </Pressable>
-                </MotiView>
-
+                            <MotiView
+                                from={{ opacity: 0, translateY: 50 }}
+                                animate={{ opacity: 1, translateY: 0 }}
+                                transition={{ delay: 1000 }}
+                                style={[styles.footer, { paddingBottom: 24 + insets.bottom }]}
+                            >
+                                <Pressable
+                                    onPress={handleUnlock}
+                                    style={styles.button}
+                                >
+                                    <Sparkles size={20} color="#030014" style={{ marginRight: 8 }} />
+                                    <Text style={styles.buttonText}>Reveal Specific Synthesis</Text>
+                                    <ArrowRight size={20} color="#030014" style={{ marginLeft: 8 }} />
+                                </Pressable>
+                            </MotiView>
+                        </MotiView>
+                    )}
+                </AnimatePresence>
             </View>
         </SanctuaryBackground>
     );
 }
 
-
 const styles = StyleSheet.create({
-    loadingContainer: {
+    mappingContainer: {
         flex: 1,
         alignItems: "center",
         justifyContent: "center",
     },
-    loadingText: {
-        marginTop: 24,
+    neuralCore: {
+        width: 140,
+        height: 140,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    neuralRing: {
+        position: 'absolute',
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        borderWidth: 2,
+        borderColor: '#A78BFA',
+        borderStyle: 'dashed',
+        opacity: 0.5,
+    },
+    neuralPulse: {
+        position: 'absolute',
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        backgroundColor: 'rgba(167, 139, 250, 0.2)',
+    },
+    statusTextContainer: {
+        marginTop: 40,
+        height: 30,
+        alignItems: 'center',
+    },
+    statusText: {
         fontFamily: FONTS.body.medium,
         fontSize: 16,
-        color: "rgba(255,255,255,0.7)",
+        color: "rgba(255,255,255,0.6)",
+        letterSpacing: 1,
+        textTransform: 'uppercase',
     },
     scrollContainer: {
         padding: 24,
-        paddingBottom: 100,
     },
     header: {
         marginBottom: 24,
@@ -310,25 +329,35 @@ const styles = StyleSheet.create({
         textAlign: "center",
     },
     cardContainer: {
-        backgroundColor: "rgba(255,255,255,0.05)",
+        backgroundColor: "rgba(255,255,255,0.03)",
         borderRadius: 32,
         borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.1)",
+        borderColor: "rgba(255,255,255,0.08)",
         overflow: "hidden",
     },
-    imagePlaceholder: {
-        height: 160,
+    archetypeHeader: {
+        height: 180,
         width: "100%",
         alignItems: "center",
         justifyContent: "center",
+        backgroundColor: '#030014',
+    },
+    archetypeLabel: {
+        marginTop: 16,
+        fontFamily: FONTS.body.bold,
+        fontSize: 12,
+        color: '#A78BFA',
+        textTransform: 'uppercase',
+        letterSpacing: 2,
     },
     cardContent: {
         padding: 24,
     },
     tagsRow: {
         flexDirection: "row",
-        gap: 12,
-        marginBottom: 24,
+        flexWrap: 'wrap',
+        gap: 8,
+        marginBottom: 20,
     },
     tag: {
         paddingVertical: 6,
@@ -336,33 +365,60 @@ const styles = StyleSheet.create({
         borderRadius: 12,
     },
     tagText: {
-        fontFamily: FONTS.body.semiBold,
-        fontSize: 13,
+        fontFamily: FONTS.body.bold,
+        fontSize: 12,
+    },
+    symbolTag: {
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 12,
+        backgroundColor: "rgba(255,255,255,0.05)",
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.1)",
+    },
+    symbolTagText: {
+        color: "rgba(255,255,255,0.5)",
+        fontFamily: FONTS.body.medium,
+        fontSize: 12,
     },
     analysisText: {
         fontFamily: FONTS.body.regular,
-        fontSize: 17,
+        fontSize: 18,
         color: "rgba(255,255,255,0.9)",
-        lineHeight: 26,
-        marginBottom: 8,
+        lineHeight: 28,
+        marginBottom: 24,
     },
     blurContainer: {
-        marginTop: 8,
+        marginTop: 10,
         position: "relative",
-        borderRadius: 12, // subtle radius for the blur block
+        borderRadius: 20,
         overflow: 'hidden',
+        padding: 16,
+        backgroundColor: 'rgba(0,0,0,0.2)',
+    },
+    quoteBox: {
+        marginBottom: 16,
+        borderLeftWidth: 2,
+        borderLeftColor: '#A78BFA',
+        paddingLeft: 12,
+    },
+    quoteText: {
+        fontFamily: FONTS.body.semiBold,
+        fontSize: 15,
+        color: '#A78BFA',
+        fontStyle: 'italic',
     },
     blurredText: {
         fontFamily: FONTS.body.regular,
-        fontSize: 17,
-        color: "rgba(255,255,255,0.5)",
-        lineHeight: 26,
+        fontSize: 16,
+        color: "rgba(255,255,255,0.3)",
+        lineHeight: 24,
     },
     lockOverlay: {
         ...StyleSheet.absoluteFillObject,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "rgba(0,0,0,0.1)",
+        backgroundColor: "rgba(3,0,20,0.1)",
     },
     footer: {
         position: "absolute",
@@ -370,8 +426,6 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         padding: 24,
-        paddingBottom: 40,
-        // Add gradient to fade out content behind button?
     },
     button: {
         flexDirection: "row",
@@ -380,10 +434,12 @@ const styles = StyleSheet.create({
         height: 56,
         borderRadius: 28,
         backgroundColor: "#A78BFA",
+        // Soft Glow
         shadowColor: "#A78BFA",
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
-        shadowRadius: 12,
+        shadowRadius: 10,
+        elevation: 5,
     },
     buttonText: {
         fontFamily: FONTS.body.bold,

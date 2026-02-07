@@ -3,7 +3,7 @@ import { StyleSheet, Pressable, TextInput, ScrollView, Keyboard, View, Touchable
 import { BlurView } from "expo-blur";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "@/components/Themed";
-import { useMutation, useAction } from "convex/react";
+import { useMutation, useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { SanctuaryBackground } from "@/components/SanctuaryUI/Background";
@@ -13,6 +13,8 @@ import { useRouter } from "expo-router";
 import { showErrorToast, showSuccessToast } from "@/lib/toast";
 import * as Haptics from "expo-haptics";
 import { FONTS } from "@/constants/Theme";
+import { APP_CONFIG } from "@/constants/Config";
+import { useIsProUser } from "@/contexts/RevenueCatContext";
 
 export default function RecordScreen() {
   const router = useRouter();
@@ -27,6 +29,8 @@ export default function RecordScreen() {
   const saveDream = useMutation(api.dreams.saveDream);
   const analyzeDream = useAction(api.ai.analyzeDream);
   const generateDreamImage = useAction(api.ai.generateDreamImage);
+  const usageStatus = useQuery(api.dreams.getUsageStatus, userId ? { userId } : "skip");
+  const isPro = useIsProUser();
 
   const handleTextChange = (text: string) => {
     setDreamText(text);
@@ -187,6 +191,26 @@ export default function RecordScreen() {
               </View>
             )}
 
+            {/* Usage Indicator for Free Users */}
+            {!isPro && status !== 'analyzing' && (
+              <MotiView
+                from={{ opacity: 0, translateY: 10 }}
+                animate={{ opacity: 1, translateY: 0 }}
+                style={styles.usageContainer}
+              >
+                <View style={styles.usageTextRow}>
+                  <Text style={styles.usageLabel}>Sanctuary Capacity</Text>
+                  <Text style={styles.usageValue}>{usageStatus?.count ?? 0} / {usageStatus?.limit ?? APP_CONFIG.FREE_WEEKLY_LIMIT}</Text>
+                </View>
+                <View style={styles.usageBarBg}>
+                  <MotiView
+                    style={[styles.usageBarFill, { width: `${((usageStatus?.count ?? 0) / (usageStatus?.limit ?? APP_CONFIG.FREE_WEEKLY_LIMIT)) * 100}%` }]}
+                    animate={{ width: `${((usageStatus?.count ?? 0) / (usageStatus?.limit ?? APP_CONFIG.FREE_WEEKLY_LIMIT)) * 100}%` }}
+                  />
+                </View>
+              </MotiView>
+            )}
+
             {/* Submission */}
             <AnimatePresence>
               {status !== 'analyzing' && dreamText.trim().length > 10 && (
@@ -196,13 +220,26 @@ export default function RecordScreen() {
                   exit={{ opacity: 0, translateY: 10 }}
                   style={styles.submissionRow}
                 >
-                  <TouchableOpacity
-                    style={styles.submitButton}
-                    onPress={handleSubmitDream}
-                  >
-                    <Text style={styles.submitButtonText}>Preserve & Interpret</Text>
-                    <Sparkles size={18} color="#030014" />
-                  </TouchableOpacity>
+                  {isPro || usageStatus?.canRecord ? (
+                    <TouchableOpacity
+                      style={styles.submitButton}
+                      onPress={handleSubmitDream}
+                    >
+                      <Text style={styles.submitButtonText}>Preserve & Interpret</Text>
+                      <Sparkles size={18} color="#030014" />
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={[styles.submitButton, { backgroundColor: '#FFD700' }]}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                        router.push('/settings'); // Or show paywall directly
+                      }}
+                    >
+                      <Text style={[styles.submitButtonText, { color: '#000' }]}>Unlock Unlimited Sanctuary</Text>
+                      <Sparkles size={18} color="#000" />
+                    </TouchableOpacity>
+                  )}
                 </MotiView>
               )}
             </AnimatePresence>
@@ -436,5 +473,40 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: 'rgba(255,255,255,0.5)',
     lineHeight: 20,
+  },
+  usageContainer: {
+    padding: 20,
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    borderRadius: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  usageTextRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  usageLabel: {
+    fontFamily: FONTS.body.medium,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.4)',
+  },
+  usageValue: {
+    fontFamily: FONTS.body.bold,
+    fontSize: 12,
+    color: '#A78BFA',
+  },
+  usageBarBg: {
+    height: 4,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  usageBarFill: {
+    height: '100%',
+    backgroundColor: '#A78BFA',
+    borderRadius: 2,
   },
 });

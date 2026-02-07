@@ -18,31 +18,20 @@
 ## 1. Vision & Identity
 
 ### The Concept
-Lumi is the **"OS for the Subconscious"** — an AI-powered dream interpreter that acts as a longitudinal, empathetic companion for spiritual introspection. Unlike predatory "coin-based" dream apps, Lumi offers a **private, continuous dialogue** with your subconscious.
+Lumi is the **"OS for the Subconscious"** — an AI-powered dream interpreter acting as an empathetic, longitudinal companion. It moves beyond generic "coin-based" apps to offer a **private, bioluminescent sanctuary** for dialogue with your inner self.
 
 ### Theme: "Bioluminescent Sanctuary"
-- **Visuals**: Studio Ghibli inspired, soft lighting, watercolor-ink hybrid.
-- **Tone**: Empathetic, Socratic, Mystical but grounded.
+- **Visuals**: Studio Ghibli inspired, high-depth glassmorphism, watercolor-ink hybrid.
+- **Tone**: Socratic, Mystical, Empathetic.
 - **Colors**:
-  - Background: Twilight Indigo (`#030014`, `#1A1B41`)
-  - Primary Glow: Bioluminescent Teal (`#BAF2BB`)
-  - Highlights: Warm Amber (`#F4E04D`)
-
-### Design System
-
-| Token | Hex | Usage |
-|-------|-----|-------|
-| `PURPLE.primary` | `#A78BFA` | Primary accent color |
-| `PURPLE.glow` | `#8B5CF6` | Shadows and glows |
-| `BACKGROUND.base` | `#0A0A0F` | App background |
-| `BACKGROUND.card` | `#141420` | Card surfaces |
-
-See `constants/Theme.ts` for the complete design token system.
+  - Background: Twilight Indigo (`#030014`)
+  - Accent: Sanctuary Purple (`#A78BFA`)
+  - Surface: Glassmorphic Navy (`rgba(255,255,255,0.06)`)
 
 ### Terminology
 | Standard Term | Lumi Term |
 |---------------|-----------|
-| User | Dreamer / Traveler |
+| User | Traveler / Dreamer |
 | Dream Entry | Reflection |
 | Analysis | Insight |
 | Subscription | Inner Circle / Sanctuary Access |
@@ -53,16 +42,14 @@ See `constants/Theme.ts` for the complete design token system.
 
 | Layer | Technology |
 |-------|------------|
-| **Frontend** | React Native + Expo (Managed Workflow) |
+| **Frontend** | React Native + Expo (SDK 54) |
 | **Navigation** | Expo Router (File-based) |
-| **Backend** | Convex (Realtime DB + Functions) |
-| **Auth** | Clerk (JWT, OAuth) |
-| **AI** | OpenRouter (Gemini 1.5 Flash / Claude) |
-| **Animations** | Moti + Reanimated |
-| **Graphics** | React Native Skia |
-| **Analytics** | PostHog |
-| **Payments** | RevenueCat (Planned) |
-| **Language** | TypeScript |
+| **Backend** | Convex (Realtime DB + Mutations + Crons) |
+| **Auth** | Clerk (JWT-based sync with Convex) |
+| **AI** | OpenRouter (Gemini 2.0 Flash / Gemini 1.5 Pro) |
+| **Analytics** | PostHog (Behavioral Tracking & Identity) |
+| **Payments** | RevenueCat (Subscription & Customer Center) |
+| **Security** | Expo SecureStore + LocalAuthentication (Biometrics) |
 
 ---
 
@@ -72,23 +59,21 @@ See `constants/Theme.ts` for the complete design token system.
 Lumi_v0/
 ├── apps/
 │   └── mobile/           # React Native app
-│       ├── app/          # Expo Router screens
-│       │   ├── (tabs)/   # Main tab screens
-│       │   ├── onboarding/ # Onboarding flow
-│       │   └── dream/    # Dream detail [id]
-│       ├── components/   # Reusable UI components
-│       │   ├── Gamification/ # LevelCard, XP
-│       │   ├── Insights/     # StreakOrb, SentimentSpectrum
-│       │   ├── Navigation/   # FloatingTabBar
-│       │   └── SanctuaryUI/  # Background, Sparkle
-│       └── lib/          # Utilities (posthog, settings)
-├── convex/               # Backend functions & schema
-│   ├── schema.ts         # Database schema
-│   ├── dreams.ts         # Dream CRUD + XP logic
-│   ├── users.ts          # User sync & profile
-│   ├── insights.ts       # Dashboard stats query
-│   └── ai.ts             # AI interpretation actions
-└── project_docs/         # (Archived) Legacy docs
+│       ├── app/          # Navigation Screens
+│       │   ├── (tabs)/   # Main Experience (Journal, Insights, Lexicon, Settings)
+│       │   ├── onboarding/ # Detailed persona discovery
+│       │   └── dream/    # Dream Detail [id]
+│       ├── components/   
+│       │   ├── Gamification/ # Leveling, XP, Streaks
+│       │   ├── SanctuaryUI/  # Custom Backgrounds, Loaders, Sparkles
+│       │   └── Navigation/   # Floating Glass TabBar
+│       └── lib/          # Logic (Auth, PostHog, Settings, RevenueCat)
+├── convex/               # Backend Logic
+│   ├── schema.ts         # Multi-table relational schema
+│   ├── ai.ts             # Multimodal analysis actions
+│   ├── dreams.ts         # CRUD + Gamification triggers
+│   ├── users.ts          # Persona & Profile sync
+│   └── crons.ts          # Scheduled maintenance & synthesis
 ```
 
 ---
@@ -98,186 +83,70 @@ Lumi_v0/
 Create `.env.local` in `apps/mobile/`:
 
 ```bash
-# Clerk Authentication
+# Clerk
 EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
 
-# Convex Backend
+# Convex
 EXPO_PUBLIC_CONVEX_URL_DEV=https://...
-EXPO_PUBLIC_CONVEX_URL_PROD=https://... # (Optional)
 
-# PostHog Analytics
+# PostHog
 EXPO_PUBLIC_POSTHOG_API_KEY=phc_...
 
-# OpenRouter AI (Set in Convex Dashboard, NOT client-side)
+# AI (Set in Convex Dashboard)
 OPENROUTER_API_KEY=sk-or-...
 ```
 
 ---
 
-## 5. Application Workflow
+## 5. Feature Ecosystem
 
-### Onboarding Flow
-```
-Welcome → Dream Snapshot → First Dream → Processing → Auth Gate → Paywall → Main App
-```
+### 🏆 Gamification (The Leveling System)
+- **XP**: Awarded for recordings (10 XP) and consistency.
+- **Levels**: Level up every `Level * 500` XP (currently).
+- **Streak**: Tracks daily sanctuary visits.
+- **Sync**: Level & XP logic lives in `convex/dreams.ts` on every successful save.
 
-### Main App (Tabs)
-| Tab | Path | Purpose |
-|-----|------|---------|
-| **Record** | `/(tabs)/index.tsx` | Record dreams via voice or text. Central "breathing orb" UI. |
-| **Journal** | `/(tabs)/journal.tsx` | List of past dreams. Tap to view details. Includes LevelCard. |
-| **Insights** | `/(tabs)/insights.tsx` | Dashboard: Streak, Sentiment, Symbol Cloud. |
-| **Settings** | `/(tabs)/settings.tsx` | Profile, preferences, export, logout. Includes LevelCard. |
+### 🧠 Subconscious Pipeline
+1. **Input**: Voice or Multi-line Text entry during onboarding.
+2. **Synthetic Analysis**: Instant, intent-based "Glimpse" presented during onboarding to eliminate cold-start latency.
+3. **Background Analysis**: Deep AI analysis and image generation trigger in the background post-authentication.
+4. **Insight Extraction**: AI extracts **Symbols**, **Archetypes**, and **Emotions** into relational tables.
+5. **Visualization**: Studio Ghibli style artwork generated via AI actions.
+6. **Lexicon**: Auto-populated dictionary of personal symbols discovered by the Traveler.
 
-### Dream Detail
-- **Path**: `app/dream/[id].tsx`
-- **Actions**: View full text, AI interpretation, generated image, edit, delete, share.
+### 🔒 Security & Privacy
+- **Biometric Lock**: FaceID/TouchID protection for the journal.
+- **Local Persistence**: `expo-secure-store` for app-wide UI settings.
+- **Data Sovereignty**: Export functionality for all personal reflections.
 
----
-
-## 6. Database Schema (Convex)
-
-### `dreams` Table
-```typescript
-{
-  userId: string,
-  text: string,
-  interpretation?: string,
-  sentiment?: string,
-  symbols?: string[],
-  lumi_quote?: string,
-  imageUrl?: string,
-  createdAt: number,
-}
-```
-
-### `users` Table
-```typescript
-{
-  userId: string,           // Clerk Subject ID
-  email?: string,
-  name?: string,
-  dreamFrequency?: string,
-  primaryGoal?: string,
-  marketingVibe?: string,
-  onboardingStatus?: string,
-  streak?: number,
-  lastEntryDate?: number,
-  xp?: number,              // Gamification
-  level?: number,           // Gamification
-  createdAt: number,
-}
-```
+### 📈 Global Analytics (PostHog)
+- **Identity Tracking**: Users identified by Clerk ID.
+- **Funnel Analysis**: Tracking the journey from onboarding to paywall.
+- **Engagement**: Capture events for dream recordings and setting changes.
 
 ---
 
-## 7. Feature Documentation
+## 6. Production Roadmap
 
-### Gamification (XP & Levels)
-- **XP Award**: 10 XP per recorded dream.
-- **Level Formula**: Level up every `level * 100` XP.
-- **Titles**: "Novice Dreamer" → "Lucid Explorer" → "Astral Traveler" → "Dream Weaver".
-- **Components**: `LevelCard` displayed in Journal & Settings.
+| Phase | Status | Key Features |
+|-------|--------|--------------|
+| **Core Infrastructure** | ✅ Done | Clerk Auth, Convex DB, AI Analysis |
+| **Engagement MVP** | ✅ Done | Tab Navigation, Floating UI, Gamification |
+| **Security & Analytics**| ✅ Done | Biometrics, PostHog integration |
+| **Monetization** | � Active | RevenueCat Integration, Customer Center |
+| **Post-MVP Vision** | 🔲 Planned | Smart Reminders, Weekly Totem, Spirit Guides |
 
-### AI Analysis Pipeline
-1. User records dream (text or audio).
-2. `saveDream` mutation stores entry.
-3. `transcribeAndAnalyze` action (if audio) transcribes via Gemini multimodal.
-4. `analyzeDream` action extracts symbols, sentiment, interpretation.
-5. `generateDreamImage` action creates Studio Ghibli-style visualization.
-
-### PostHog Analytics
-- **Init**: `apps/mobile/lib/posthog.ts`
-- **Provider**: Wrapped in `apps/mobile/app/_layout.tsx`
-- **Usage**: `usePostHog()` hook → `posthog.capture('event_name', { ... })`
+> [!IMPORTANT]
+> **Post-MVP Planning**: For details on the long-term vision (2026+), refer to [ROADMAP_POST_MVP.md](./ROADMAP_POST_MVP.md).
 
 ---
 
-## 8. Development Commands
+## 7. Development Protocols
 
-```bash
-# Install dependencies
-npm install
-
-# Start Convex backend (in one terminal)
-npm run dev:convex
-
-# Start Expo (in another terminal)
-npm run dev:mobile
-
-# Build native app (required for audio/camera features)
-npx expo run:ios
-npx expo run:android
-
-# Clear cache if issues
-npx expo start --clear
-
-# Run tests
-npm test
-
-# Lint & Typecheck
-npm run lint
-npm run typecheck
-```
+1. **Schema Integrity**: Always check `convex/schema.ts` before adding new data fields.
+2. **Design Tokens**: Use `constants/Theme.ts`. Do not use hardcoded hex codes.
+3. **Haptics**: Always trigger `Light` feedback on primary button taps.
+4. **Analytics**: Capture significant User Actions: `posthog.capture('event_name')`.
 
 ---
-
-## 9. Troubleshooting
-
-| Issue | Solution |
-|-------|----------|
-| `ExponentAV` module missing | Run `npx expo run:ios` to rebuild native app |
-| `api.insights` type error | Run `npx convex dev` to regenerate types |
-| Metro bundler errors | `npx expo start --clear` |
-| Convex sync issues | Restart `npx convex dev` |
-| SafeAreaView warnings | Use `react-native-safe-area-context` |
-
----
-
-## 10. Production Roadmap
-
-| Phase | Status | Items |
-|-------|--------|-------|
-| **Auth & DB** | ✅ Done | Clerk, Convex, RLS |
-| **AI Pipeline** | ✅ Done | Transcription, Analysis, Image Gen |
-| **Mobile MVP** | ✅ Done | Record, Journal, Insights, Settings |
-| **Gamification** | ✅ Done | XP, Levels, LevelCard |
-| **Vector Search (RAG)** | 🔲 Planned | Recurring themes/symbols |
-| **RevenueCat** | 🔲 Planned | Subscription management |
-| **App Store** | 🔲 Planned | CI/CD, EAS Build, Assets |
-
----
-
-## 11. AI Agent Protocol
-
-> **For AI assistants (Antigravity, etc.) working on this codebase:**
-
-1. **Read this document first** before making changes.
-2. **Schema changes** must update this document.
-3. **New env vars** must be added to Section 4.
-4. **After work**: Run `npm run check-all` to verify.
-
----
-
-## 12. Skills & Workflows
-
-### Recommended Workflows
-| Command | Purpose |
-|---------|---------|
-| `/dev-build` | Rebuild native app with cache clear |
-| `/convex-sync` | Regenerate Convex types |
-| `/release-prep` | Version bump, changelog, store prep |
-
-### Adding a Workflow
-Create `.agent/workflows/[name].md`:
-```markdown
----
-description: Short description
----
-1. Step one
-2. Step two
-```
-
----
-
-*Last Updated: 2026-02-06*
+*Last Updated: 2026-02-07*

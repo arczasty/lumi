@@ -5,8 +5,18 @@ import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { MotiView } from 'moti';
 import { Mic, BookOpen, Sparkles, Settings, Library } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+import { useAuth } from '@clerk/clerk-expo';
+import { useQuery } from 'convex/react';
+import { api } from '@/convex/_generated/api';
 
 export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+    const { isSignedIn, userId } = useAuth();
+    const user = useQuery(api.users.getUser, userId ? { userId } : "skip");
+
+    // Hide if not signed in OR if still in in-progress onboarding
+    if (!isSignedIn) return null;
+    if (user && user.onboardingStatus !== "completed") return null;
+
     return (
         <View style={styles.container}>
             <BlurView intensity={30} tint="dark" style={styles.blur}>

@@ -8,6 +8,8 @@ import * as SecureStore from 'expo-secure-store';
 export type AppSettings = {
   hapticsEnabled: boolean;
   notificationsEnabled: boolean;
+  biometricLockEnabled: boolean;
+  autoAnalysisEnabled: boolean;
   whisperSensitivity: 'Low' | 'Medium' | 'High';
 };
 
@@ -16,6 +18,8 @@ const SETTINGS_KEY = 'lumi_app_settings';
 const DEFAULT_SETTINGS: AppSettings = {
   hapticsEnabled: true,
   notificationsEnabled: true,
+  biometricLockEnabled: false,
+  autoAnalysisEnabled: true,
   whisperSensitivity: 'High',
 };
 

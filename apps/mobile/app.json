@@ -9,22 +9,27 @@
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/splash-icon.png",
-      "resizeMode": "contain",
       "backgroundColor": "#030014"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.bieleckiark.lumi"
+      "bundleIdentifier": "com.dreaminterpreter.lumi",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
-      "package": "com.bieleckiark.lumi",
+      "package": "com.dreaminterpreter.lumi",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#030014"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -38,6 +43,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "6cfbd376-0fe8-4220-8a11-27ecdabbb1f1"
+      }
     }
   }
 }

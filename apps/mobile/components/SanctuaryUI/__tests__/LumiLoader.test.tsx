@@ -14,8 +14,8 @@ describe('LumiLoader', () => {
   });
 
   it('renders the sanctuary background', () => {
-    const { container } = render(<LumiLoader />);
-    expect(container).toBeTruthy();
+    const component = render(<LumiLoader />);
+    expect(component).toBeTruthy();
   });
 
   it('renders animated orb elements', () => {
