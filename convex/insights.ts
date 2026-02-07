@@ -25,29 +25,27 @@ export const getDashboardStats = query({
         });
 
         const sortedDays = Array.from(uniqueDays).sort((a, b) => b - a);
+        const yesterday = new Date(Date.now() - 86400000);
+        yesterday.setHours(0, 0, 0, 0);
 
-        // Check if today or yesterday has an entry to start the streak
-        // If no entry today or yesterday, streak is 0.
-        const todayTime = today.getTime();
-        const yesterdayTime = todayTime - 86400000;
+        // Calculate discovery count
+        const uniqueSymbols = new Set<string>();
+        const uniqueArchetypes = new Set<string>();
+        const uniqueEmotions = new Set<string>();
 
-        if (sortedDays.length > 0) {
-            if (sortedDays[0] === todayTime || sortedDays[0] === yesterdayTime) {
-                streak = 1;
-                // Check backwards
-                let currentCheck = sortedDays[0] === todayTime ? todayTime : yesterdayTime;
+        dreams.forEach(d => {
+            d.dreamSymbols?.forEach(s => uniqueSymbols.add(s.name));
+            d.dreamArchetypes?.forEach(a => uniqueArchetypes.add(a.name));
+            d.dreamEmotions?.forEach(e => uniqueEmotions.add(e.name));
+        });
 
-                for (let i = 1; i < sortedDays.length; i++) {
-                    const expectedPrev = currentCheck - 86400000;
-                    if (sortedDays[i] === expectedPrev) {
-                        streak++;
-                        currentCheck = expectedPrev;
-                    } else {
-                        break;
-                    }
-                }
-            }
-        }
+        const discoveryCount = uniqueSymbols.size + uniqueArchetypes.size + uniqueEmotions.size;
+
+        // Fetch user for synthesis
+        const user = await ctx.db
+            .query("users")
+            .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
+            .first();
 
         // 2. Sentiment Analysis
         const sentimentCounts: Record<string, number> = {};
@@ -60,10 +58,9 @@ export const getDashboardStats = query({
         // 3. Top Symbols
         const symbolCounts: Record<string, number> = {};
         dreams.forEach(d => {
-            if (d.symbols) {
-                d.symbols.forEach(s => {
-                    // Normalize somewhat
-                    const clean = s.trim().toLowerCase();
+            if (d.dreamSymbols) {
+                d.dreamSymbols.forEach(s => {
+                    const clean = s.name.trim().toLowerCase();
                     symbolCounts[clean] = (symbolCounts[clean] || 0) + 1;
                 });
             }
@@ -76,9 +73,12 @@ export const getDashboardStats = query({
 
         return {
             totalEntries: dreams.length,
-            streak,
+            streak: user?.streak ?? 0,
             sentimentCounts,
             topSymbols,
+            discoveryCount,
+            synthesis: user?.lastSynthesis ? JSON.parse(user.lastSynthesis) : null,
+            lastSentiment: dreams[0]?.sentiment,
             recentActivity: dreams.slice(0, 7).map(d => ({ date: d.createdAt, sentiment: d.sentiment }))
         };
     },

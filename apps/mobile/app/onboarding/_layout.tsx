@@ -1,7 +1,16 @@
 
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
+import { useEffect } from "react";
 
 export default function OnboardingLayout() {
+    const router = useRouter();
+
+    useEffect(() => {
+        if (process.env.EXPO_PUBLIC_DEVELOPMENT === "TRUE") {
+            router.replace("/(tabs)");
+        }
+    }, []);
+
     return (
         <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
             {/* Main Onboarding Flow */}

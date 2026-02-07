@@ -3,7 +3,7 @@ import { View, StyleSheet, Platform, Pressable } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { MotiView } from 'moti';
-import { Mic, BookOpen, Sparkles, Settings } from 'lucide-react-native';
+import { Mic, BookOpen, Sparkles, Settings, Library } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
 export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
@@ -13,6 +13,7 @@ export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarP
                 <View style={styles.content}>
                     {state.routes.map((route, index) => {
                         const { options } = descriptors[route.key];
+                        if ((options as any).href === null) return null;
                         const isFocused = state.index === index;
 
                         const onPress = () => {
@@ -30,9 +31,9 @@ export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarP
 
                         let Icon;
                         switch (route.name) {
-                            case 'index': Icon = Mic; break;
-                            case 'journal': Icon = BookOpen; break;
+                            case 'index': Icon = BookOpen; break;
                             case 'insights': Icon = Sparkles; break;
+                            case 'lexicon': Icon = Library; break;
                             case 'settings': Icon = Settings; break;
                             default: Icon = Sparkles;
                         }

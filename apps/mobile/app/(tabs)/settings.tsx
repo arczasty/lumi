@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { StyleSheet, Switch, Platform, Alert, Share, ScrollView, Pressable, Linking } from "react-native";
-import { Text, View } from "@/components/Themed";
+import { Text } from "@/components/Themed";
+import { StyleSheet, Switch, Platform, Alert, Share, ScrollView, Pressable, Linking, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LogOut, Download, Bell, Vibrate, HelpCircle, ExternalLink, RefreshCcw, Bug } from "lucide-react-native";
+import { LogOut, Download, Bell, Vibrate, HelpCircle, ExternalLink, RefreshCcw, Crown, Sparkles, RotateCcw } from "lucide-react-native";
 import { useAuth } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -14,6 +14,7 @@ import { SanctuaryBackground } from "@/components/SanctuaryUI/Background";
 import { MotiView } from "moti";
 import Constants from "expo-constants";
 import { FONTS } from "@/constants/Theme";
+import { useRevenueCat } from "@/contexts/RevenueCatContext";
 
 const IS_DEV = process.env.EXPO_PUBLIC_DEVELOPMENT === "TRUE";
 
@@ -27,6 +28,10 @@ export default function SettingsScreen() {
     });
     const [isLoading, setIsLoading] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
+    const [isRestoring, setIsRestoring] = useState(false);
+
+    // RevenueCat subscription state
+    const { isProUser, currentPlan, presentPaywall, presentCustomerCenter, restorePurchases } = useRevenueCat();
 
     const dreams = useQuery(api.dreams.getDreams, userId ? { userId } : "skip");
 
@@ -125,7 +130,7 @@ export default function SettingsScreen() {
                 <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                     {/* Header */}
                     <View style={styles.header}>
-                        <Text style={styles.headerTitle}>Settings</Text>
+                        <Text style={styles.title}>Settings</Text>
                     </View>
 
                     {/* Preferences */}
@@ -163,6 +168,90 @@ export default function SettingsScreen() {
                                     thumbColor={settings.notificationsEnabled ? "#A78BFA" : "#666"}
                                 />
                             </View>
+                        </View>
+                    </MotiView>
+
+                    {/* Subscription */}
+                    <MotiView from={{ opacity: 0, translateY: 20 }} animate={{ opacity: 1, translateY: 0 }} transition={{ delay: 150 }}>
+                        <Text style={styles.sectionTitle}>Subscription</Text>
+                        <View style={styles.card}>
+                            {/* Current Status */}
+                            <View style={styles.settingRow}>
+                                <View style={[styles.settingIcon, isProUser && { backgroundColor: "rgba(167,139,250,0.25)" }]}>
+                                    <Crown size={18} color={isProUser ? "#A78BFA" : "rgba(255,255,255,0.5)"} />
+                                </View>
+                                <View style={styles.settingInfo}>
+                                    <Text style={styles.settingLabel}>{isProUser ? "Lumi Pro" : "Free Plan"}</Text>
+                                    <Text style={styles.settingDescription}>
+                                        {isProUser
+                                            ? `${currentPlan === 'lifetime' ? 'Lifetime' : currentPlan === 'yearly' ? 'Yearly' : 'Monthly'} subscription`
+                                            : "Upgrade for full access"}
+                                    </Text>
+                                </View>
+                                {isProUser && (
+                                    <View style={styles.proBadge}>
+                                        <Text style={styles.proBadgeText}>PRO</Text>
+                                    </View>
+                                )}
+                            </View>
+                            <View style={styles.divider} />
+
+                            {/* Upgrade or Manage */}
+                            {isProUser ? (
+                                <Pressable
+                                    style={styles.actionRow}
+                                    onPress={async () => {
+                                        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        presentCustomerCenter();
+                                    }}
+                                >
+                                    <View style={styles.settingIcon}>
+                                        <Sparkles size={18} color="#A78BFA" />
+                                    </View>
+                                    <Text style={styles.actionLabel}>Manage Subscription</Text>
+                                    <ExternalLink size={14} color="rgba(255,255,255,0.3)" />
+                                </Pressable>
+                            ) : (
+                                <Pressable
+                                    style={[styles.actionRow, styles.upgradeRow]}
+                                    onPress={async () => {
+                                        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                        presentPaywall();
+                                    }}
+                                >
+                                    <View style={[styles.settingIcon, { backgroundColor: "rgba(167,139,250,0.25)" }]}>
+                                        <Sparkles size={18} color="#A78BFA" />
+                                    </View>
+                                    <Text style={[styles.actionLabel, { color: "#A78BFA" }]}>Upgrade to Pro</Text>
+                                </Pressable>
+                            )}
+                            <View style={styles.divider} />
+
+                            {/* Restore Purchases */}
+                            <Pressable
+                                style={styles.actionRow}
+                                onPress={async () => {
+                                    setIsRestoring(true);
+                                    try {
+                                        const restored = await restorePurchases();
+                                        if (restored) {
+                                            showSuccessToast("Purchases restored!");
+                                        } else {
+                                            showInfoToast("No purchases to restore");
+                                        }
+                                    } catch (e) {
+                                        showErrorToast("Failed to restore");
+                                    } finally {
+                                        setIsRestoring(false);
+                                    }
+                                }}
+                                disabled={isRestoring}
+                            >
+                                <View style={styles.settingIcon}>
+                                    <RotateCcw size={18} color="#A78BFA" />
+                                </View>
+                                <Text style={styles.actionLabel}>{isRestoring ? "Restoring..." : "Restore Purchases"}</Text>
+                            </Pressable>
                         </View>
                     </MotiView>
 
@@ -235,10 +324,10 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
     safeArea: { flex: 1 },
     scrollView: { flex: 1 },
-    scrollContent: { padding: 20, paddingBottom: 120 },
+    scrollContent: { padding: 24, paddingBottom: 120 },
     // Header
     header: { marginBottom: 24, backgroundColor: "transparent" },
-    headerTitle: { fontFamily: FONTS.heading.bold, fontSize: 28, color: "#fff" },
+    title: { fontFamily: FONTS.heading.bold, fontSize: 32, color: "#fff" },
     // Sections
     sectionTitle: { fontFamily: FONTS.body.semiBold, fontSize: 13, color: "rgba(255,255,255,0.5)", marginBottom: 8, marginLeft: 4, letterSpacing: 0.5 },
     card: {
@@ -270,4 +359,8 @@ const styles = StyleSheet.create({
     versionContainer: { alignItems: "center", marginTop: 20, gap: 8, backgroundColor: "transparent" },
     versionText: { fontFamily: FONTS.body.regular, fontSize: 12, color: "rgba(255,255,255,0.3)" },
     devBadge: { fontFamily: FONTS.body.bold, fontSize: 10, color: "#F59E0B", paddingHorizontal: 8, paddingVertical: 4, backgroundColor: "rgba(245,158,11,0.15)", borderRadius: 4 },
+    // Subscription styles
+    proBadge: { backgroundColor: "rgba(167,139,250,0.25)", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+    proBadgeText: { fontFamily: FONTS.body.bold, fontSize: 10, color: "#A78BFA", letterSpacing: 0.5 },
+    upgradeRow: { backgroundColor: "rgba(167,139,250,0.08)" },
 });

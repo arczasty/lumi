@@ -22,12 +22,6 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Record",
-        }}
-      />
-      <Tabs.Screen
-        name="journal"
-        options={{
           title: "Journal",
         }}
       />
@@ -35,6 +29,12 @@ export default function TabLayout() {
         name="insights"
         options={{
           title: "Insights",
+        }}
+      />
+      <Tabs.Screen
+        name="lexicon"
+        options={{
+          title: "Lexicon",
         }}
       />
       <Tabs.Screen

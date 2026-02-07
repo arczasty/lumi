@@ -13,6 +13,7 @@ import { LumiLoader } from "@/components/SanctuaryUI/LumiLoader";
 import Toast from "react-native-toast-message";
 import { toastConfig } from "@/components/ToastConfig";
 import { posthog, PostHogProvider } from "@/lib/posthog";
+import { RevenueCatProvider } from "@/contexts/RevenueCatContext";
 
 // Google Fonts via Expo packages
 import {
@@ -92,6 +93,7 @@ function RootLayoutNav() {
         <Stack>
           <Stack.Screen name="onboarding" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="record" options={{ headerShown: false, presentation: 'modal' }} />
           <Stack.Screen name="dream/[id]" options={{ headerShown: false }} />
         </Stack>
       </ThemeProvider>
@@ -133,11 +135,13 @@ export default function RootLayout() {
   return (
     <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} tokenCache={tokenCache}>
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-        <PostHogProvider client={posthog}>
-          <SafeAreaProvider>
-            <RootLayoutNav />
-          </SafeAreaProvider>
-        </PostHogProvider>
+        <RevenueCatProvider>
+          <PostHogProvider client={posthog}>
+            <SafeAreaProvider>
+              <RootLayoutNav />
+            </SafeAreaProvider>
+          </PostHogProvider>
+        </RevenueCatProvider>
       </ConvexProviderWithClerk>
     </ClerkProvider>
   );

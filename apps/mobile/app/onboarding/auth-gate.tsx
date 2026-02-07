@@ -62,14 +62,14 @@ export default function AuthGateScreen() {
             // 1. Sync User (Convex side handles existing vs new)
             await syncUser({ userId: clerkUserId });
 
-            // 2. Save Profile Data
-            if (intent) {
-                await updateProfile({
-                    userId: clerkUserId,
-                    primaryGoal: intent,
-                    marketingVibe: recall,
-                });
-            }
+            // 2. Save Profile Data (age, sex, intent, recall)
+            await updateProfile({
+                userId: clerkUserId,
+                age: age ? parseInt(age, 10) : undefined,
+                sex: sex,
+                primaryGoal: intent,
+                marketingVibe: recall,
+            });
 
             // 3. Save Dream
             let dreamId;

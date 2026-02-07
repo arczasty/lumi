@@ -10,15 +10,20 @@ export function getSentimentColor(sentiment?: string): { bg: string; text: strin
 
   switch (normalizedSentiment) {
     case "positive":
-      return { bg: "rgba(186, 242, 187, 0.2)", text: "#A78BFA" }; // Green
+      return { bg: "rgba(34, 197, 94, 0.15)", text: "#4ADE80" };
     case "bliss":
-      return { bg: "rgba(244, 224, 77, 0.2)", text: "#F4E04D" }; // Gold
+      return { bg: "rgba(244, 224, 77, 0.15)", text: "#F4E04D" };
     case "negative":
-      return { bg: "rgba(239, 68, 68, 0.2)", text: "#EF4444" }; // Red
+    case "fear":
+      return { bg: "rgba(239, 68, 68, 0.25)", text: "#FF6B6B" }; // More intense for Fear
     case "anxiety":
-      return { bg: "rgba(251, 146, 60, 0.2)", text: "#FB923C" }; // Orange
+      return { bg: "rgba(251, 146, 60, 0.15)", text: "#FB923C" };
+    case "calm":
+      return { bg: "rgba(45, 212, 191, 0.15)", text: "#2DD4BF" };
+    case "vivid":
+      return { bg: "rgba(167, 139, 250, 0.15)", text: "#A78BFA" };
     case "neutral":
     default:
-      return { bg: "rgba(156, 163, 175, 0.2)", text: "#9CA3AF" }; // Gray
+      return { bg: "rgba(156, 163, 175, 0.15)", text: "#9CA3AF" };
   }
 }

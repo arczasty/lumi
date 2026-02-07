@@ -1,6 +1,5 @@
 import React from "react";
-import { StyleSheet, Dimensions } from "react-native";
-import { View } from "@/components/Themed";
+import { StyleSheet, Dimensions, View } from "react-native";
 import { MotiView } from "moti";
 import { useTheme } from "@react-navigation/native";
 

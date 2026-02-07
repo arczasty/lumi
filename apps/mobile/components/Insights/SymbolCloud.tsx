@@ -17,7 +17,7 @@ export function SymbolCloud({ symbols }: { symbols: { name: string; count: numbe
                         transition={{ type: 'spring', delay: index * 100 }}
                         style={styles.tag}
                     >
-                        <Text style={styles.tagText}>#{item.name}</Text>
+                        <Text style={styles.tagText}>{item.name}</Text>
                         <View style={styles.countBadge}>
                             <Text style={styles.countText}>{item.count}</Text>
                         </View>

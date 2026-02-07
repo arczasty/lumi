@@ -23,16 +23,13 @@ export default function EntryScreen() {
     const recall = params.recall as string;
 
     const dynamicPrompt = useMemo(() => {
-        if (intent === 'fog' || recall === 'static') {
-            return "What is the very last thing you remember feeling?";
-        }
         if (intent === 'shadow') {
-            return "Unburden the tension. What was chasing you?";
+            return "Describe your last nightmare — what was chasing you?";
         }
         if (intent === 'mirror' || intent === 'control') {
-            return "What symbols appeared in the dark?";
+            return "Describe the last dream you remember. What symbols appeared?";
         }
-        return "What fragments remain?";
+        return "Describe the last dream you remember, even if just fragments.";
     }, [intent, recall]);
 
     const handleSubmit = async () => {

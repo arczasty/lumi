@@ -1,7 +1,10 @@
 "use node";
 import { v } from "convex/values";
-import { action, internalMutation } from "./_generated/server";
+import { action, internalAction } from "./_generated/server";
 import { api, internal } from "./_generated/api";
+import { MODELS } from "./lib/models";
+import { ALL_SENTIMENTS, normalizeSentiment } from "./lib/constants";
+import { getTranscriptionAnalysisPrompt, getAnalysisSystemPrompt, getImageGenerationPrompt } from "./lib/prompts";
 
 // ============================================================================
 // AI LOGGING UTILITIES
@@ -89,91 +92,7 @@ const logParsing = (context: AILogContext, success: boolean, details?: Record<st
 // STANDARDIZED AI OUTPUT SCHEMA
 // ============================================================================
 
-// ============================================================================
-// STANDARDIZED AI OUTPUT SCHEMA (The Master Truth Mirror)
-// ============================================================================
 
-const SENTIMENT_CATEGORIES = {
-    NEGATIVE: ["Anxiety", "Fear", "Grief", "Confusion", "Frustration", "Guilt", "Shame", "Anger", "Isolation", "Vulnerability"],
-    POSITIVE: ["Joy", "Euphoria", "Peace", "Empowerment", "Awe", "Love", "Hope", "Relief", "Clarity", "Freedom", "Play"],
-    COMPLEX: ["Mystery", "Nostalgia", "Longing", "Transformation", "Surrender", "Neutral", "Ambivalence", "Lucidity"]
-} as const;
-
-const ALL_SENTIMENTS = [
-    ...SENTIMENT_CATEGORIES.NEGATIVE,
-    ...SENTIMENT_CATEGORIES.POSITIVE,
-    ...SENTIMENT_CATEGORIES.COMPLEX
-] as const;
-
-const ARCHETYPES = [
-    // The Core Self
-    "The Self", "The Persona", "The Shadow", "The Anima/Animus",
-    // The Journey
-    "The Hero", "The Explorer", "The Innocent", "The Orphan",
-    // The Guidance / Chaos
-    "The Wise Old Man", "The Great Mother", "The Trickster", "The Magician",
-    // Social / Power
-    "The Ruler", "The Caregiver", "The Lover", "The Rebel", "The Creator", "The Jester"
-] as const;
-
-type ValidSentiment = typeof ALL_SENTIMENTS[number];
-type ValidArchetype = typeof ARCHETYPES[number];
-
-/**
- * Normalize sentiment to valid value (fallback to Mystery if invalid)
- */
-const normalizeSentiment = (sentiment: string): ValidSentiment => {
-    const normalized = ALL_SENTIMENTS.find(
-        s => s.toLowerCase() === sentiment?.toLowerCase()
-    );
-    return normalized || "Mystery";
-};
-
-/**
- * Generate the standard prompt for dream analysis
- */
-const getAnalysisSystemPrompt = (userIntent?: string): string => {
-    const intentContext = userIntent
-        ? getIntentDescription(userIntent)
-        : "exploring their subconscious";
-
-    return `You are Lumi, a wise, poetic, and deep Jungian Dream Guide. 
-Your voice is warm, empathetic, and slightly mystical (think Studio Ghibli meets Carl Jung).
-
-THE USER'S GOAL: ${intentContext}
-
-TASK:
-Analyze the user's dream with deep psychological insight. Avoid generic specific interpretations; look for the "soul" of the dream.
-
-OUTPUT REQUIREMENTS:
-Return a JSON object with EXACTLY this structure:
-{
-    "interpretation": "A deep, 3-4 sentence Jungian interpretation. Focus on the 'why' and the inner conflict or growth.",
-    "sentiment": "ONE value from: ${ALL_SENTIMENTS.join(', ')}",
-    "secondary_sentiments": ["Optional: 1-2 other sentiments from the list"],
-    "symbols": ["3-5 specific symbols found in the dream"],
-    "archetypes": ["Optional: 1-2 Jungian archetypes if clearly present from: ${ARCHETYPES.join(', ')}"],
-    "lumi_quote": "A single, beautiful, poetic sentence acknowledging the dreamer's journey.",
-    "guidance": "A short, actionable reflection prompt (e.g., 'Ask yourself where in life you feel...')"
-}
-
-STRICT RULES:
-1. 'sentiment' MUST be one of the provided list.
-2. Be sensitive but honest about negative emotions (Anxiety, Grief, Shadow).
-3. Do not be overly clinical; be human and soulful.
-4. JSON only.
-`;
-};
-
-const getIntentDescription = (intent: string): string => {
-    switch (intent?.toLowerCase()) {
-        case 'shadow': return 'confronting repressed fears and shadow self';
-        case 'mirror': return 'seeking deep self-reflection and truth';
-        case 'fog': return 'finding clarity in confusion';
-        case 'control': return 'mastering the dream state (lucidity)';
-        default: return 'understanding the deeper self';
-    }
-};
 
 // ============================================================================
 // AI ACTIONS
@@ -189,7 +108,7 @@ export const transcribeAndAnalyze = action({
         storageId: v.string(), // Convex storage ID for the audio file
     },
     handler: async (ctx, args) => {
-        const MODEL = "google/gemini-flash-1.5";
+        const MODEL = MODELS.audioAnalysis;
         const startTime = Date.now();
         const logCtx: AILogContext = {
             operation: "transcribeAndAnalyze",
@@ -241,20 +160,7 @@ export const transcribeAndAnalyze = action({
                     messages: [
                         {
                             role: "system",
-                            content: `You are Lumi, a Jungian Dream Guide.Your tone is warm and poetic.
-    First, transcribe the user's dream recording perfectly.
-Then, provide a deep Jungian analysis.
-
-Return a JSON object with EXACTLY this structure:
-{
-    "transcription": "The full text of the dream recording",
-        "interpretation": "A deep, empathetic Jungian insight (3-4 sentences)",
-            "sentiment": "EXACTLY ONE of: ${ALL_SENTIMENTS.join(', ')}",
-                "symbols": ["3-5 core symbols as short phrases"],
-                    "lumi_quote": "A short 1-sentence poetic acknowledgement"
-}
-
-IMPORTANT: sentiment MUST be EXACTLY one of: ${ALL_SENTIMENTS.join(', ')} `
+                            content: getTranscriptionAnalysisPrompt()
                         },
                         {
                             role: "user",
@@ -305,6 +211,10 @@ IMPORTANT: sentiment MUST be EXACTLY one of: ${ALL_SENTIMENTS.join(', ')} `
 
             // Parse the response
             let result;
+            let dreamSymbols: any[] = [];
+            let dreamArchetypes: any[] = [];
+            let dreamEmotions: any[] = [];
+
             try {
                 const rawResult = JSON.parse(content);
 
@@ -316,9 +226,65 @@ IMPORTANT: sentiment MUST be EXACTLY one of: ${ALL_SENTIMENTS.join(', ')} `
                     secondary_sentiments: Array.isArray(rawResult.secondary_sentiments) ? rawResult.secondary_sentiments.map((s: any) => normalizeSentiment(s)).slice(0, 3) : [],
                     symbols: Array.isArray(rawResult.symbols) ? rawResult.symbols.slice(0, 5) : [],
                     archetypes: Array.isArray(rawResult.archetypes) ? rawResult.archetypes.slice(0, 3) : [],
+                    emotions: Array.isArray(rawResult.emotions) ? rawResult.emotions.slice(0, 3) : [],
                     lumi_quote: rawResult.lumi_quote || "Dreams reflect the hidden self.",
                     guidance: rawResult.guidance || ""
                 };
+
+                // Helper to process entities with potential definition generation
+                const processEntities = async (entities: any[], type: "symbols" | "archetypes" | "emotions") => {
+                    const processed = [];
+                    for (const entity of entities) {
+                        const name = typeof entity === 'string' ? entity : entity.name;
+                        const context = typeof entity === 'object' ? entity.context : "";
+
+                        // Check if exists
+                        const existing = await ctx.runQuery(
+                            type === "symbols" ? api.dreams.getSymbolByName :
+                                type === "archetypes" ? api.dreams.getArchetypeByName :
+                                    api.dreams.getEmotionByName,
+                            { name }
+                        );
+
+                        let definition = undefined;
+                        let category = undefined;
+
+                        if (!existing) {
+                            // Generate definition for new discovery
+                            const defResult = await ctx.runAction(internal.ai.generateDefinition, {
+                                name,
+                                type
+                            });
+                            definition = defResult.description;
+                            category = defResult.category;
+                        }
+
+                        processed.push({ name, context, description: definition, category });
+                    }
+                    return processed;
+                };
+
+                // Process structured items
+                if (result.symbols.length > 0) {
+                    const symbolsWithDefs = await processEntities(rawResult.symbols, "symbols");
+                    dreamSymbols = await ctx.runMutation(internal.ai_mutations.processDreamSymbols, {
+                        symbols: symbolsWithDefs
+                    });
+                }
+
+                if (result.archetypes.length > 0) {
+                    const archetypesWithDefs = await processEntities(rawResult.archetypes, "archetypes");
+                    dreamArchetypes = await ctx.runMutation(internal.ai_mutations.processDreamArchetypes, {
+                        archetypes: archetypesWithDefs
+                    });
+                }
+
+                if (result.emotions.length > 0) {
+                    const emotionsWithDefs = await processEntities(rawResult.emotions, "emotions");
+                    dreamEmotions = await ctx.runMutation(internal.ai_mutations.processDreamEmotions, {
+                        emotions: emotionsWithDefs
+                    });
+                }
 
                 logParsing(logCtx, true, {
                     hasTranscription: !!result.transcription,
@@ -337,16 +303,19 @@ IMPORTANT: sentiment MUST be EXACTLY one of: ${ALL_SENTIMENTS.join(', ')} `
             }
 
             // 4. Update the dream record with both transcription and analysis
-            await ctx.runMutation(internal.ai.updateDreamResults, {
+            await ctx.runMutation(internal.ai_mutations.updateDreamResults, {
                 id: args.dreamId,
                 text: result.transcription,
                 interpretation: result.interpretation,
                 sentiment: result.sentiment,
                 secondary_sentiments: result.secondary_sentiments,
-                symbols: result.symbols,
-                archetypes: result.archetypes,
+                symbols: result.symbols.map((s: any) => typeof s === 'string' ? s : s.name),
+                archetypes: result.archetypes.map((a: any) => typeof a === 'string' ? a : a.name),
                 lumi_quote: result.lumi_quote,
                 guidance: result.guidance,
+                dreamSymbols: dreamSymbols,
+                dreamArchetypes: dreamArchetypes,
+                dreamEmotions: dreamEmotions,
             });
 
             aiLog("INFO", logCtx, "Transcription and analysis complete", {
@@ -371,7 +340,7 @@ export const analyzeDream = action({
         text: v.string(),
     },
     handler: async (ctx, args) => {
-        const MODEL = "anthropic/claude-3.5-sonnet";
+        const MODEL = MODELS.dreamAnalysis;
         const startTime = Date.now();
         const logCtx: AILogContext = {
             operation: "analyzeDream",
@@ -450,6 +419,10 @@ export const analyzeDream = action({
 
             // Parse the response
             let result;
+            let dreamSymbols: any[] = [];
+            let dreamArchetypes: any[] = [];
+            let dreamEmotions: any[] = [];
+
             try {
                 const rawResult = JSON.parse(content);
 
@@ -460,9 +433,65 @@ export const analyzeDream = action({
                     secondary_sentiments: Array.isArray(rawResult.secondary_sentiments) ? rawResult.secondary_sentiments.map((s: any) => normalizeSentiment(s)).slice(0, 3) : [],
                     symbols: Array.isArray(rawResult.symbols) ? rawResult.symbols.slice(0, 5) : [],
                     archetypes: Array.isArray(rawResult.archetypes) ? rawResult.archetypes.slice(0, 3) : [],
+                    emotions: Array.isArray(rawResult.emotions) ? rawResult.emotions.slice(0, 3) : [],
                     lumi_quote: rawResult.lumi_quote || "Dreams reflect the hidden self.",
                     guidance: rawResult.guidance || ""
                 };
+
+                // Helper to process entities with potential definition generation
+                const processEntities = async (entities: any[], type: "symbols" | "archetypes" | "emotions") => {
+                    const processed = [];
+                    for (const entity of entities) {
+                        const name = typeof entity === 'string' ? entity : entity.name;
+                        const context = typeof entity === 'object' ? entity.context : "";
+
+                        // Check if exists
+                        const existing = await ctx.runQuery(
+                            type === "symbols" ? api.dreams.getSymbolByName :
+                                type === "archetypes" ? api.dreams.getArchetypeByName :
+                                    api.dreams.getEmotionByName,
+                            { name }
+                        );
+
+                        let definition = undefined;
+                        let category = undefined;
+
+                        if (!existing) {
+                            // Generate definition for new discovery
+                            const defResult = await ctx.runAction(internal.ai.generateDefinition, {
+                                name,
+                                type
+                            });
+                            definition = defResult.description;
+                            category = defResult.category;
+                        }
+
+                        processed.push({ name, context, description: definition, category });
+                    }
+                    return processed;
+                };
+
+                // Process structured items
+                if (result.symbols.length > 0) {
+                    const symbolsWithDefs = await processEntities(rawResult.symbols, "symbols");
+                    dreamSymbols = await ctx.runMutation(internal.ai_mutations.processDreamSymbols, {
+                        symbols: symbolsWithDefs
+                    });
+                }
+
+                if (result.archetypes.length > 0) {
+                    const archetypesWithDefs = await processEntities(rawResult.archetypes, "archetypes");
+                    dreamArchetypes = await ctx.runMutation(internal.ai_mutations.processDreamArchetypes, {
+                        archetypes: archetypesWithDefs
+                    });
+                }
+
+                if (result.emotions.length > 0) {
+                    const emotionsWithDefs = await processEntities(rawResult.emotions, "emotions");
+                    dreamEmotions = await ctx.runMutation(internal.ai_mutations.processDreamEmotions, {
+                        emotions: emotionsWithDefs
+                    });
+                }
 
                 logParsing(logCtx, true, {
                     hasInterpretation: !!result.interpretation,
@@ -480,15 +509,18 @@ export const analyzeDream = action({
                 throw new Error("Failed to parse AI response as JSON");
             }
 
-            await ctx.runMutation(internal.ai.updateDreamResults, {
+            await ctx.runMutation(internal.ai_mutations.updateDreamResults, {
                 id: args.dreamId,
                 interpretation: result.interpretation,
                 sentiment: result.sentiment,
                 secondary_sentiments: result.secondary_sentiments,
-                symbols: result.symbols,
-                archetypes: result.archetypes,
+                symbols: result.symbols.map((s: any) => typeof s === 'string' ? s : s.name),
+                archetypes: result.archetypes.map((a: any) => typeof a === 'string' ? a : a.name),
                 lumi_quote: result.lumi_quote,
                 guidance: result.guidance,
+                dreamSymbols: dreamSymbols,
+                dreamArchetypes: dreamArchetypes,
+                dreamEmotions: dreamEmotions,
             });
 
             aiLog("INFO", logCtx, "Dream analysis complete", {
@@ -507,22 +539,58 @@ export const analyzeDream = action({
     },
 });
 
-export const updateDreamResults = internalMutation({
+export const generateDefinition = internalAction({
     args: {
-        id: v.id("dreams"),
-        text: v.optional(v.string()),
-        interpretation: v.optional(v.string()),
-        sentiment: v.optional(v.string()),
-        secondary_sentiments: v.optional(v.array(v.string())),
-        symbols: v.optional(v.array(v.string())),
-        archetypes: v.optional(v.array(v.string())),
-        lumi_quote: v.optional(v.string()),
-        guidance: v.optional(v.string()),
+        name: v.string(),
+        type: v.union(v.literal("symbols"), v.literal("archetypes"), v.literal("emotions")),
     },
     handler: async (ctx, args) => {
-        const { id, ...results } = args;
-        await ctx.db.patch(id, results);
-    },
+        const MODEL = MODELS.dreamAnalysis; // Reuse the analysis model for definitions
+        const api_key = process.env.OPENROUTER_API_KEY;
+
+        const systemPrompt = `You are Lumi, a Jungian Dream Guide. 
+Your task is to provide a deep, poetic, and psychologically insightful definition for a dream element.
+The element is a ${args.type.slice(0, -1)} named "${args.name}".
+
+Return a JSON object with:
+{
+    "description": "A 2-3 sentence deep Jungian definition.",
+    "category": "A single word category (e.g. 'Animals', 'Nature', 'Mental', 'Figure')"
+}`;
+
+        try {
+            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${api_key}`,
+                    "Content-Type": "application/json",
+                    "X-Title": "Lumi App",
+                },
+                body: JSON.stringify({
+                    model: MODEL,
+                    messages: [
+                        { role: "system", content: systemPrompt },
+                        { role: "user", content: `Define the ${args.type.slice(0, -1)}: ${args.name}` }
+                    ],
+                    response_format: { type: "json_object" }
+                })
+            });
+
+            const data = await response.json() as any;
+            const content = JSON.parse(data.choices?.[0]?.message?.content || "{}");
+
+            return {
+                description: content.description || "A mysterious presence in the dreamscape.",
+                category: content.category || "General"
+            };
+        } catch (error) {
+            console.error("Failed to generate definition:", error);
+            return {
+                description: "A mysterious presence in the dreamscape.",
+                category: "General"
+            };
+        }
+    }
 });
 
 export const generateDreamImage = action({
@@ -531,7 +599,8 @@ export const generateDreamImage = action({
         dreamText: v.string(),
     },
     handler: async (ctx, args) => {
-        const MODEL = "black-forest-labs/flux-1-schnell"; // Flux is fast & high quality on OpenRouter
+        // Use Flux 1.1 Pro - Latest stable high-quality model
+        const MODEL = MODELS.imageGeneration;
         const startTime = Date.now();
         const logCtx: AILogContext = {
             operation: "generateDreamImage",
@@ -541,7 +610,7 @@ export const generateDreamImage = action({
         };
 
         // Create Studio Ghibli style prompt
-        const imagePrompt = `Studio Ghibli style illustration, soft pastel watercolor painting, whimsical dreamy atmosphere, gentle lighting, hand - drawn animation aesthetic, magical realism: ${args.dreamText.slice(0, 200)} `;
+        const imagePrompt = getImageGenerationPrompt(args.dreamText);
 
         logRequest(logCtx, {
             dreamTextLength: args.dreamText.length,
@@ -557,10 +626,16 @@ export const generateDreamImage = action({
         }
 
         try {
+            // Mark as generating
+            await ctx.runMutation(internal.ai_mutations.updateImageStatus, {
+                id: args.dreamId,
+                status: "generating",
+            });
+
             const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
                 method: "POST",
                 headers: {
-                    Authorization: `Bearer ${api_key} `,
+                    Authorization: `Bearer ${api_key}`,
                     "Content-Type": "application/json",
                     "X-Title": "Lumi App",
                 },
@@ -572,7 +647,7 @@ export const generateDreamImage = action({
                             content: imagePrompt
                         }
                     ],
-                    modalities: ["image", "text"]
+                    modalities: ["image"]
                 })
             });
 
@@ -598,44 +673,72 @@ export const generateDreamImage = action({
             }
 
             // Extract image URL from response
-            const messageContent = data.choices?.[0]?.message?.content;
+            const message = data.choices?.[0]?.message;
+            const messageContent = message?.content;
 
-            if (!messageContent) {
-                logError(logCtx, new Error("No image content in response"), {
-                    choicesCount: data.choices?.length,
-                    finishReason: data.choices?.[0]?.finish_reason
-                });
-                throw new Error("No image content in response");
-            }
+            // Detailed logging of the message structure to debug "No image content"
+            aiLog("DEBUG", logCtx, "Inspecting message structure", {
+                hasMessage: !!message,
+                messageKeys: message ? Object.keys(message) : [],
+                contentType: typeof messageContent,
+                contentIsArray: Array.isArray(messageContent),
+                hasToolCalls: !!message?.tool_calls,
+                rawMessagePreview: JSON.stringify(message).substring(0, 500)
+            });
 
             // Parse the content - OpenRouter may return image as base64 or URL
             let imageUrl = "";
             let extractionMethod = "unknown";
 
-            // If content is a string, it might be a URL or base64
-            if (typeof messageContent === "string") {
+            // 1. Direct content string
+            if (typeof messageContent === "string" && messageContent.length > 10) {
                 imageUrl = messageContent;
                 extractionMethod = "string_direct";
-            } else if (Array.isArray(messageContent)) {
-                // Content might be an array of parts
-                const imagePart = messageContent.find((part: any) => part.type === "image_url");
+            }
+            // 2. Multimodal array content
+            else if (Array.isArray(messageContent)) {
+                const imagePart = messageContent.find((part: any) => part.type === "image_url" || part.image_url);
                 if (imagePart?.image_url?.url) {
                     imageUrl = imagePart.image_url.url;
                     extractionMethod = "array_image_url";
+                } else if (imagePart?.url) {
+                    imageUrl = imagePart.url;
+                    extractionMethod = "array_direct_url";
                 }
-            } else if (messageContent.image_url?.url) {
-                imageUrl = messageContent.image_url.url;
-                extractionMethod = "object_image_url";
+            }
+            // 3. Choice-level URL (some providers)
+            else if (data.choices?.[0]?.url) {
+                imageUrl = data.choices[0].url;
+                extractionMethod = "choice_url";
+            }
+            // 4. Message-level image_url (non-standard)
+            else if (message?.image_url?.url) {
+                imageUrl = message.image_url.url;
+                extractionMethod = "message_image_url_object";
+            } else if (message?.image_url && typeof message.image_url === "string") {
+                imageUrl = message.image_url;
+                extractionMethod = "message_image_url_string";
+            }
+            // 5. Message-level images array (Flux/OpenRouter specific)
+            else if (message?.images && Array.isArray(message.images) && message.images.length > 0) {
+                const imgObj = message.images[0];
+                if (imgObj.url) {
+                    imageUrl = imgObj.url;
+                    extractionMethod = "message_images_array_url";
+                } else if (imgObj.image_url?.url) {
+                    imageUrl = imgObj.image_url.url;
+                    extractionMethod = "message_images_array_image_url";
+                }
             }
 
             if (!imageUrl) {
                 logError(logCtx, new Error("Failed to extract image URL from response"), {
-                    contentType: typeof messageContent,
-                    isArray: Array.isArray(messageContent),
-                    contentKeys: typeof messageContent === "object" ? Object.keys(messageContent) : [],
+                    choicesCount: data.choices?.length,
+                    finishReason: data.choices?.[0]?.finish_reason,
+                    messageKeys: message ? Object.keys(message) : [],
                     contentPreview: JSON.stringify(messageContent).substring(0, 300)
                 });
-                throw new Error("Failed to extract image URL from response");
+                throw new Error("No image content in response");
             }
 
             // Log successful extraction
@@ -647,17 +750,45 @@ export const generateDreamImage = action({
                 isHttpUrl: imageUrl.startsWith("http")
             });
 
-            // Update dream record with image URL
-            await ctx.runMutation(internal.ai.updateDreamImage, {
+            // Download and store the image in Convex Storage
+            let storageId: string | undefined;
+            try {
+                const imageResponse = await fetch(imageUrl);
+                if (!imageResponse.ok) {
+                    throw new Error(`Failed to download image: ${imageResponse.statusText}`);
+                }
+                const imageBlob = await imageResponse.blob();
+                storageId = await ctx.storage.store(imageBlob);
+
+                aiLog("INFO", logCtx, "Image stored in Convex", {
+                    phase: "STORAGE",
+                    storageId,
+                    size: imageBlob.size,
+                    type: imageBlob.type
+                });
+            } catch (storageError: any) {
+                logError(logCtx, storageError, {
+                    phase: "STORAGE_FAILED",
+                    imageUrl: imageUrl.substring(0, 50) + "..."
+                });
+                // Fallback: If storage fails, we still have the external URL
+            }
+
+            // Update dream record with image URL and Storage ID
+            const shouldStoreUrl = !imageUrl.startsWith("data:") || !storageId;
+
+            await ctx.runMutation(internal.ai_mutations.updateDreamImage, {
                 id: args.dreamId,
-                imageUrl: imageUrl
+                imageUrl: shouldStoreUrl ? imageUrl : undefined,
+                storageId: storageId as any
             });
 
             aiLog("INFO", logCtx, "Dream image generation complete", {
                 phase: "COMPLETE",
                 totalDurationMs: Date.now() - startTime,
                 extractionMethod,
-                imageUrlLength: imageUrl.length
+                imageUrlLength: imageUrl.length,
+                storedInDb: shouldStoreUrl
             });
 
             return { imageUrl };
@@ -667,19 +798,204 @@ export const generateDreamImage = action({
                 phase: "API_CALL",
                 willReturnNull: true
             });
-            // Don't fail the whole dream if image generation fails
-            // Just log the error and continue
+            // Mark as failed and increment retry count
+            await ctx.runMutation(internal.ai_mutations.updateImageStatus, {
+                id: args.dreamId,
+                status: "failed",
+                incrementRetry: true,
+            });
             return { imageUrl: null, error: String(error) };
         }
     },
 });
 
-export const updateDreamImage = internalMutation({
+// Cron job to retry failed image generations
+export const retryFailedImages = internalAction({
+    args: {},
+    handler: async (ctx) => {
+        console.log("[CRON] Starting retryFailedImages job");
+
+        // Get failed dreams that can be retried
+        const failedDreams = await ctx.runQuery(
+            internal.ai_mutations.getFailedDreamImages,
+            {}
+        );
+
+        console.log(`[CRON] Found ${failedDreams.length} failed images to retry`);
+
+        // Retry each one
+        for (const dream of failedDreams) {
+            console.log(`[CRON] Retrying image for dream ${dream.id}`);
+            try {
+                await ctx.runAction(internal.ai.generateDreamImageInternal, {
+                    dreamId: dream.id,
+                    dreamText: dream.text,
+                });
+            } catch (error) {
+                console.error(`[CRON] Failed to retry dream ${dream.id}:`, error);
+            }
+        }
+
+        console.log("[CRON] Completed retryFailedImages job");
+    },
+});
+
+// Internal version of generateDreamImage for cron job
+export const generateDreamImageInternal = internalAction({
     args: {
-        id: v.id("dreams"),
-        imageUrl: v.string(),
+        dreamId: v.id("dreams"),
+        dreamText: v.string(),
     },
     handler: async (ctx, args) => {
-        await ctx.db.patch(args.id, { imageUrl: args.imageUrl });
+        const MODEL = "black-forest-labs/flux.2-klein-4b";
+        const startTime = Date.now();
+
+        console.log(`[RETRY] Generating image for dream ${args.dreamId}`);
+
+        // Mark as generating
+        await ctx.runMutation(internal.ai_mutations.updateImageStatus, {
+            id: args.dreamId,
+            status: "generating",
+        });
+
+        const api_key = process.env.OPENROUTER_API_KEY;
+        if (!api_key) {
+            await ctx.runMutation(internal.ai_mutations.updateImageStatus, {
+                id: args.dreamId,
+                status: "failed",
+                incrementRetry: true,
+            });
+            throw new Error("OPENROUTER_API_KEY is not set");
+        }
+
+        const imagePrompt = `Studio Ghibli style illustration, soft pastel watercolor painting, whimsical dreamy atmosphere, gentle lighting, hand-drawn animation aesthetic, magical realism: ${args.dreamText.slice(0, 200)}`;
+
+        try {
+            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${api_key}`,
+                    "Content-Type": "application/json",
+                    "X-Title": "Lumi App",
+                },
+                body: JSON.stringify({
+                    model: MODEL,
+                    messages: [{ role: "user", content: imagePrompt }],
+                    modalities: ["image"],
+                }),
+            });
+
+            const data = (await response.json()) as any;
+
+            if (data.error) {
+                throw new Error(data.error.message || "Image generation failed");
+            }
+
+            const message = data.choices?.[0]?.message;
+            const messageContent = message?.content;
+
+            // Detailed logging of the message structure to debug "No image content"
+            // Note: logCtx is not available here, using console.log for internal actions
+            console.log("DEBUG: Inspecting internal message structure", {
+                hasMessage: !!message,
+                messageKeys: message ? Object.keys(message) : [],
+                contentType: typeof messageContent,
+                contentIsArray: Array.isArray(messageContent),
+                rawMessagePreview: JSON.stringify(message).substring(0, 500)
+            });
+
+            let imageUrl = "";
+            let extractionMethod = "unknown";
+
+            // 1. Direct content string
+            if (typeof messageContent === "string" && messageContent.length > 10) {
+                imageUrl = messageContent;
+                extractionMethod = "string_direct";
+            }
+            // 2. Multimodal array content
+            else if (Array.isArray(messageContent)) {
+                const imagePart = messageContent.find((part: any) => part.type === "image_url" || part.image_url);
+                if (imagePart?.image_url?.url) {
+                    imageUrl = imagePart.image_url.url;
+                    extractionMethod = "array_image_url";
+                } else if (imagePart?.url) {
+                    imageUrl = imagePart.url;
+                    extractionMethod = "array_direct_url";
+                }
+            }
+            // 3. Choice-level URL (some providers)
+            else if (data.choices?.[0]?.url) {
+                imageUrl = data.choices[0].url;
+                extractionMethod = "choice_url";
+            }
+            // 4. Message-level image_url (non-standard)
+            else if (message?.image_url?.url) {
+                imageUrl = message.image_url.url;
+                extractionMethod = "message_image_url_object";
+            } else if (message?.image_url && typeof message.image_url === "string") {
+                imageUrl = message.image_url;
+                extractionMethod = "message_image_url_string";
+            }
+            // 5. Message-level images array (Flux/OpenRouter specific)
+            else if (message?.images && Array.isArray(message.images) && message.images.length > 0) {
+                const imgObj = message.images[0];
+                if (imgObj.url) {
+                    imageUrl = imgObj.url;
+                    extractionMethod = "message_images_array_url";
+                } else if (imgObj.image_url?.url) {
+                    imageUrl = imgObj.image_url.url;
+                    extractionMethod = "message_images_array_image_url";
+                }
+            }
+
+            if (!imageUrl) {
+                // Note: logError is not available here, using console.error for internal actions
+                console.error("Failed to extract image URL from internal response", {
+                    choicesCount: data.choices?.length,
+                    finishReason: data.choices?.[0]?.finish_reason,
+                    messageKeys: message ? Object.keys(message) : [],
+                    contentPreview: JSON.stringify(messageContent).substring(0, 300)
+                });
+                throw new Error("Failed to extract image URL from internal response");
+            }
+
+            // Log successful extraction
+            console.log("DEBUG: Image URL extracted successfully (internal)", {
+                phase: "EXTRACTION",
+                extractionMethod,
+                imageUrlLength: imageUrl.length,
+                isBase64: imageUrl.startsWith("data:"),
+                isHttpUrl: imageUrl.startsWith("http")
+            });
+
+            // Download and store
+            let storageId: string | undefined;
+            try {
+                const imageResponse = await fetch(imageUrl);
+                if (imageResponse.ok) {
+                    const imageBlob = await imageResponse.blob();
+                    storageId = await ctx.storage.store(imageBlob);
+                }
+            } catch (e) {
+                console.error("Failed to store image internally", e);
+            }
+
+            await ctx.runMutation(internal.ai_mutations.updateDreamImage, {
+                id: args.dreamId,
+                imageUrl,
+                storageId: storageId as any,
+            });
+
+            console.log(`[RETRY] Successfully generated image for dream ${args.dreamId} in ${Date.now() - startTime}ms`);
+            return { success: true, imageUrl };
+        } catch (error) {
+            await ctx.runMutation(internal.ai_mutations.updateImageStatus, {
+                id: args.dreamId,
+                status: "failed",
+                incrementRetry: true,
+            });
+            console.error(`[RETRY] Failed to generate image for dream ${args.dreamId}:`, error);
+            return { success: false, error: String(error) };
+        }
     },
 });

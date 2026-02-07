@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-import { StyleSheet, Dimensions, Platform, ScrollView, ActivityIndicator, Share, Alert, Modal, TextInput } from "react-native";
-import { Text, View } from "@/components/Themed";
+import { StyleSheet, Dimensions, Platform, ScrollView, ActivityIndicator, Share, Alert, Modal, TextInput, View } from "react-native";
+import { Text } from "@/components/Themed";
 import { Link, useRouter, useLocalSearchParams } from "expo-router";
 import { MotiView } from "moti";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ArrowLeft, Share as LucideShare, Sparkles, Moon, Edit3, Trash2, X, Check, Image as LucideImage } from "lucide-react-native";
+import { ArrowLeft, Sparkles, Moon, Trash2, X, Check, Image as LucideImage, User, Heart } from "lucide-react-native";
 import { Pressable } from "react-native";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -16,6 +16,8 @@ import { Image } from "expo-image";
 import { getSentimentColor } from "@/utils/colors";
 import { LumiLoader } from "@/components/SanctuaryUI/LumiLoader";
 import { showSuccessToast, showErrorToast } from "@/lib/toast";
+import { FONTS, PURPLE, BACKGROUND, TEXT, BORDER, SHADOW, TYPOGRAPHY } from "@/constants/Theme";
+import { LinearGradient } from "expo-linear-gradient";
 
 export default function DreamDetailScreen() {
     const router = useRouter();
@@ -187,7 +189,7 @@ export default function DreamDetailScreen() {
 ✨ Lumi's Insight:
 ${excerpt}
 
-🔮 Symbols: ${topSymbols.map(s => `#${s}`).join(' ')}
+🔮 Symbols: ${topSymbols.join(', ')}
 
 Interpreted by Lumi 🌙
 Your bioluminescent dream journal`;
@@ -231,6 +233,90 @@ Your bioluminescent dream journal`;
 
     const sentimentColors = getSentimentColor(dream.sentiment);
 
+    const handleTagPress = (name: string) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        router.push({ pathname: "/lexicon", params: { search: name } });
+    };
+
+    const MinimalTag = ({ name, color, onPress }: { name: string, color: string, onPress: () => void }) => (
+        <Pressable
+            onPress={onPress}
+            style={({ pressed }) => [
+                styles.minimalTag,
+                { backgroundColor: `${color}12`, borderColor: `${color}25` },
+                pressed && { opacity: 0.7, transform: [{ scale: 0.96 }] }
+            ]}
+        >
+            <Text style={[styles.minimalTagText, { color }]}>{name}</Text>
+        </Pressable>
+    );
+
+    const renderArchetypes = () => {
+        if (!dream.dreamArchetypes || dream.dreamArchetypes.length === 0) return null;
+        return (
+            <View style={styles.tagSection}>
+                <View style={styles.tagSectionHeader}>
+                    <User size={12} color="#2DD4BF" strokeWidth={2.5} />
+                    <Text style={[styles.tagSectionLabel, { color: '#2DD4BF' }]}>Archetypes</Text>
+                </View>
+                <View style={styles.tagsRow}>
+                    {dream.dreamArchetypes.map((a, i) => (
+                        <MinimalTag
+                            key={i}
+                            name={a.name}
+                            color="#2DD4BF"
+                            onPress={() => handleTagPress(a.name)}
+                        />
+                    ))}
+                </View>
+            </View>
+        );
+    };
+
+    const renderEmotions = () => {
+        if (!dream.dreamEmotions || dream.dreamEmotions.length === 0) return null;
+        return (
+            <View style={styles.tagSection}>
+                <View style={styles.tagSectionHeader}>
+                    <Heart size={12} color="#FF6B6B" strokeWidth={2.5} />
+                    <Text style={[styles.tagSectionLabel, { color: '#FF6B6B' }]}>Underlying Emotions</Text>
+                </View>
+                <View style={styles.tagsRow}>
+                    {dream.dreamEmotions.map((e, i) => (
+                        <MinimalTag
+                            key={i}
+                            name={e.name}
+                            color="#FF6B6B"
+                            onPress={() => handleTagPress(e.name)}
+                        />
+                    ))}
+                </View>
+            </View>
+        );
+    };
+
+    const renderSymbols = () => {
+        if (!dream.dreamSymbols || dream.dreamSymbols.length === 0) return null;
+        return (
+            <View style={styles.tagSection}>
+                <View style={styles.tagSectionHeader}>
+                    <Moon size={12} color="#A78BFA" strokeWidth={2.5} />
+                    <Text style={[styles.tagSectionLabel, { color: '#A78BFA' }]}>Symbols</Text>
+                </View>
+                <View style={styles.tagsRow}>
+                    {dream.dreamSymbols.map((s, i) => (
+                        <MinimalTag
+                            key={i}
+                            name={s.name}
+                            color="#A78BFA"
+                            onPress={() => handleTagPress(s.name)}
+                        />
+                    ))}
+                </View>
+            </View>
+        );
+    };
+
     return (
         <View style={styles.container}>
             <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -247,13 +333,20 @@ Your bioluminescent dream journal`;
                     ) : (
                         <View style={styles.placeholderArt}>
                             <MotiView
-                                from={{ opacity: 0.3, scale: 0.9 }}
-                                animate={{ opacity: 0.5, scale: 1.0 }}
-                                transition={{ loop: true, type: 'timing', duration: 4000 }}
+                                from={{ opacity: 0.5, scale: 0.9 }}
+                                animate={{ opacity: 1, scale: 1.1 }}
+                                transition={{
+                                    type: 'timing',
+                                    duration: 2000,
+                                    loop: true,
+                                }}
+                                style={styles.loadingOrbContainer}
                             >
-                                <LucideImage color="#A78BFA" size={80} strokeWidth={1} opacity={0.3} />
+                                <View style={styles.loadingOrbOuter}>
+                                    <View style={styles.loadingOrbInner} />
+                                </View>
                             </MotiView>
-                            <Text style={styles.artLabel}>Painting your dream...</Text>
+                            <Text style={styles.artLabel}>Lumi is painting your dream...</Text>
                         </View>
                     )}
 
@@ -261,26 +354,23 @@ Your bioluminescent dream journal`;
                         <Pressable onPress={handleBack} style={styles.iconButton}>
                             <ArrowLeft color="#fff" size={24} />
                         </Pressable>
-                        <Pressable
-                            style={[styles.iconButton, isSharing && styles.iconButtonDisabled]}
-                            onPress={handleShare}
-                            disabled={isSharing}
-                        >
-                            {isSharing ? (
-                                <ActivityIndicator size="small" color="#fff" />
-                            ) : (
-                                <LucideShare color="#fff" size={24} />
-                            )}
-                        </Pressable>
+                        <View style={styles.headerRightActions}>
+                            <Pressable
+                                onPress={handleDeletePress}
+                                style={[styles.iconButton, styles.deleteButton]}
+                            >
+                                <Trash2 color="#FF6B6B" size={20} />
+                            </Pressable>
+                        </View>
                     </SafeAreaView>
                 </View>
 
                 <View style={styles.contentContainer}>
                     {/* Meta Header */}
                     <View style={styles.metaRow}>
-                        <Text style={styles.date}>
+                        <Text style={styles.dateTitle}>
                             {new Date(dream.createdAt).toLocaleDateString(undefined, {
-                                month: 'short', day: 'numeric', year: 'numeric'
+                                month: 'long', day: 'numeric', year: 'numeric'
                             })}
                         </Text>
                         {dream.sentiment && (
@@ -296,39 +386,19 @@ Your bioluminescent dream journal`;
                     <Text style={styles.dreamText}>"{dream.text}"</Text>
 
                     {/* Action Buttons */}
-                    <View style={styles.actionRow}>
-                        <Pressable
-                            style={styles.editButton}
-                            onPress={handleEditPress}
-                        >
-                            <Edit3 color="#A78BFA" size={18} />
-                            <Text style={styles.editButtonText}>Edit</Text>
-                        </Pressable>
-
-                        <Pressable
-                            style={styles.deleteButton}
-                            onPress={handleDeletePress}
-                        >
-                            <Trash2 color="#FF6B6B" size={18} />
-                            <Text style={styles.deleteButtonText}>Delete</Text>
-                        </Pressable>
-                    </View>
-
-                    <View style={styles.separator} />
-
-                    {/* Analysis Section */}
+                    {/* Analysis Section (Insight) - Unified Card Style */}
                     {dream.interpretation ? (
-                        <View style={styles.analysisSection}>
+                        <View style={styles.unifiedCard}>
                             <View style={styles.sectionTitleRow}>
-                                <Sparkles color="#F4E04D" size={20} />
-                                <Text style={styles.sectionTitle}>Lumi's Insight</Text>
+                                <Sparkles color="#2DD4BF" size={18} />
+                                <Text style={[styles.sectionTitle, { color: '#2DD4BF' }]}>Lumi's Insight</Text>
                             </View>
                             <Text style={styles.interpretation}>{dream.interpretation}</Text>
 
                             {dream.lumi_quote && (
                                 <View style={styles.quoteBox}>
                                     <View style={styles.quoteIconContainer}>
-                                        <Moon size={24} color="#A78BFA" />
+                                        <Moon size={18} color="#2DD4BF" style={{ opacity: 0.8 }} />
                                     </View>
                                     <Text style={styles.quoteText}>
                                         "{dream.lumi_quote}"
@@ -337,22 +407,45 @@ Your bioluminescent dream journal`;
                             )}
                         </View>
                     ) : (
-                        <View style={styles.analysisSection}>
-                            <ActivityIndicator color="#F4E04D" />
-                            <Text style={styles.analyzingText}>Lumi is analyzing your dream...</Text>
+                        <View style={styles.unifiedCard}>
+                            <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                                <MotiView
+                                    from={{ opacity: 0.3, scale: 0.8 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    transition={{ loop: true, type: 'timing', duration: 1500 }}
+                                >
+                                    <Sparkles color="#2DD4BF" size={32} />
+                                </MotiView>
+                                <Text style={[styles.analyzingText, { color: '#2DD4BF' }]}>Lumi is analyzing your dream...</Text>
+                            </View>
                         </View>
                     )}
 
-                    {/* Symbols */}
-                    {dream.symbols && (
-                        <View style={styles.symbolsRow}>
-                            {dream.symbols.map((s, i) => (
-                                <View key={i} style={styles.symbolTag}>
-                                    <Text style={styles.symbolText}>#{s}</Text>
-                                </View>
-                            ))}
+                    {/* Guidance Section - Prominent Box */}
+                    {dream.guidance && (
+                        <LinearGradient
+                            colors={['rgba(167, 139, 250, 0.1)', 'rgba(167, 139, 250, 0.05)']}
+                            style={styles.guidanceCard}
+                        >
+                            <Text style={styles.guidanceLabel}>💡 Guidance</Text>
+                            <Text style={styles.guidanceText}>{dream.guidance}</Text>
+                        </LinearGradient>
+                    )}
+
+                    {/* Compact Meanings Section */}
+                    {(dream.dreamArchetypes?.length || dream.dreamEmotions?.length || dream.dreamSymbols?.length) && (
+                        <View style={styles.meaningsCard}>
+                            {renderArchetypes()}
+                            {renderEmotions()}
+                            {renderSymbols()}
                         </View>
                     )}
+
+                    {/* Action Footer */}
+                    {/* Action Footer - Removed Archive Reflection as requested */}
+                    <View style={styles.footerActions}>
+                        {/* Empty footer for spacing */}
+                    </View>
 
                 </View>
 
@@ -485,103 +578,240 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingTop: 10,
     },
+    headerRightActions: {
+        flexDirection: 'row',
+        gap: 8,
+    },
     iconButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(0,0,0,0.3)',
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: 'rgba(255,255,255,0.05)',
         alignItems: 'center',
         justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
     },
     iconButtonDisabled: {
         opacity: 0.5,
     },
     contentContainer: {
         flex: 1,
-        marginTop: -40,
+        marginTop: -32,
         backgroundColor: '#030014',
         borderTopLeftRadius: 32,
         borderTopRightRadius: 32,
-        padding: 32,
+        paddingHorizontal: 24,
+        paddingVertical: 32,
         minHeight: 500,
     },
     metaRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 24,
+        marginBottom: 16,
     },
-    date: {
-        color: 'rgba(255,255,255,0.5)',
-        fontSize: 14,
-        textTransform: 'uppercase',
-        letterSpacing: 1,
+    // Styles Refined for 2026 Vibe
+    dateTitle: {
+        color: TEXT.primary,
+        fontSize: 20,
+        fontFamily: FONTS.heading.bold,
+        letterSpacing: 0.5,
     },
     sentimentBadge: {
         backgroundColor: 'rgba(186, 242, 187, 0.1)',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
         borderRadius: 20,
         borderWidth: 1,
         borderColor: 'rgba(186, 242, 187, 0.2)',
     },
     sentimentText: {
         color: '#A78BFA',
-        fontSize: 12,
-        fontWeight: 'bold',
+        fontSize: 11,
+        fontFamily: FONTS.body.bold,
         textTransform: 'uppercase',
     },
     dreamText: {
-        color: '#FFF',
-        fontSize: 20,
-        lineHeight: 32,
-        fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+        color: 'rgba(255, 255, 255, 0.85)',
+        fontSize: 16,
+        lineHeight: 28,
+        fontFamily: FONTS.body.regular,
         marginBottom: 32,
+        fontStyle: 'italic',
     },
     separator: {
         height: 1,
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        marginBottom: 32,
+        backgroundColor: BORDER.subtle,
+        marginBottom: 24,
     },
-    analysisSection: {
-        marginBottom: 32,
+    // Unified Card Style for Consistency
+    unifiedCard: {
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        borderRadius: 20,
+        padding: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.06)',
+        marginBottom: 24,
     },
     sectionTitleRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 16,
+        marginBottom: 12,
         gap: 8,
     },
     sectionTitle: {
-        color: '#F4E04D',
-        fontSize: 18,
-        fontWeight: '600',
+        fontSize: 16,
+        fontFamily: FONTS.heading.semiBold,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
     },
     interpretation: {
-        color: 'rgba(255,255,255,0.8)',
+        color: 'rgba(255,255,255,0.9)',
         fontSize: 16,
         lineHeight: 26,
-        marginBottom: 24,
+        fontFamily: FONTS.body.regular,
+        marginBottom: 16,
     },
     quoteBox: {
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        padding: 20,
-        borderRadius: 16,
-        borderLeftWidth: 4,
-        borderLeftColor: '#F4E04D',
+        flexDirection: 'row',
+        gap: 12,
+        marginTop: 8,
+        paddingTop: 16,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255, 255, 255, 0.05)',
     },
     quoteIconContainer: {
-        width: 40,
-        height: 40,
-        marginBottom: 12,
-        marginLeft: -4,
+        marginTop: 2,
     },
     quoteText: {
-        color: '#F4E04D',
+        flex: 1,
+        color: '#2DD4BF', // Teal
         fontStyle: 'italic',
+        fontSize: 15,
+        lineHeight: 22,
+        fontFamily: FONTS.heading.regular,
+    },
+    guidanceCard: {
+        padding: 20,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(167, 139, 250, 0.2)',
+        marginBottom: 24,
+    },
+    guidanceLabel: {
+        color: '#A78BFA',
+        fontSize: 12,
+        fontFamily: FONTS.body.bold,
+        textTransform: 'uppercase',
+        letterSpacing: 1.5,
+        marginBottom: 10,
+    },
+    guidanceText: {
+        color: '#FFFFFF',
         fontSize: 16,
         lineHeight: 24,
-        fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+        fontFamily: FONTS.body.medium,
+    },
+    sectionLabel: {
+        color: 'rgba(255, 255, 255, 0.5)',
+        fontSize: 11,
+        fontFamily: FONTS.body.bold,
+        textTransform: 'uppercase',
+        letterSpacing: 1.5,
+    },
+    archetypesSection: {
+        marginBottom: 24,
+    },
+    archetypeCard: {
+        borderRadius: 12,
+        overflow: 'hidden',
+    },
+    archetypeGradient: {
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        borderWidth: 1,
+        borderColor: 'rgba(45, 212, 191, 0.2)', // Teal border
+        borderRadius: 12,
+    },
+    analysisSection: {
+        marginBottom: 24,
+    },
+    symbolsSection: {
+        marginBottom: 20,
+    },
+    symbolsList: {
+        paddingHorizontal: 20,
+        paddingBottom: 20,
+        gap: 12,
+    },
+    symbolItem: {
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.05)',
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 12,
+    },
+    archetypeText: {
+        fontSize: 13,
+        fontFamily: FONTS.body.semiBold,
+    },
+    archetypesScroll: {
+        paddingVertical: 4,
+    },
+    secondarySentimentsSection: {
+        marginBottom: 24,
+    },
+    sentimentsRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginTop: 8,
+    },
+    secondarySentimentTag: {
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.08)',
+    },
+    secondarySentimentText: {
+        color: 'rgba(255, 255, 255, 0.6)',
+        fontSize: 13,
+        fontFamily: FONTS.body.medium,
+    },
+
+    // Removed old structuredSymbolCard styles as unifiedCard is used
+    symbolHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        marginBottom: 6,
+    },
+    symbolIconContainer: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    structuredSymbolName: {
+        color: '#A78BFA',
+        fontSize: 16,
+        fontFamily: FONTS.heading.semiBold,
+    },
+    structuredSymbolContext: {
+        color: 'rgba(255, 255, 255, 0.7)',
+        fontSize: 14,
+        lineHeight: 20,
+        fontFamily: FONTS.body.regular,
+        fontStyle: 'italic',
+        marginTop: 4,
     },
     symbolsRow: {
         flexDirection: 'row',
@@ -589,16 +819,17 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     symbolTag: {
-        backgroundColor: '#1A1B41',
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
         paddingHorizontal: 16,
         paddingVertical: 10,
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
     },
     symbolText: {
-        color: 'rgba(255,255,255,0.7)',
+        color: TEXT.secondary,
         fontSize: 14,
+        fontFamily: FONTS.body.medium,
     },
     // Action Button Styles
     actionRow: {
@@ -645,15 +876,17 @@ const styles = StyleSheet.create({
     // Modal Styles
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.9)',
+        backgroundColor: 'rgba(3, 0, 20, 0.95)',
         justifyContent: 'flex-end',
     },
     modalContent: {
-        backgroundColor: '#1A1B41',
+        backgroundColor: '#030014',
         borderTopLeftRadius: 32,
         borderTopRightRadius: 32,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255,255,255,0.1)',
         padding: 24,
-        minHeight: '70%',
+        minHeight: '80%',
     },
     modalHeader: {
         flexDirection: 'row',
@@ -716,5 +949,81 @@ const styles = StyleSheet.create({
         color: '#030014',
         fontSize: 16,
         fontWeight: '600',
+    },
+    footerActions: {
+        marginTop: 40,
+        paddingTop: 32,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255,255,255,0.05)',
+        alignItems: 'center',
+    },
+
+    // Meanings Section
+    meaningsCard: {
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        borderRadius: 24,
+        padding: 24,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.05)',
+        marginBottom: 24,
+        gap: 20,
+    },
+    tagSection: {
+        width: '100%',
+    },
+    tagSectionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 12,
+    },
+    tagSectionLabel: {
+        fontSize: 10,
+        fontFamily: FONTS.body.bold,
+        textTransform: 'uppercase',
+        letterSpacing: 1.5,
+        opacity: 0.8,
+    },
+    tagsRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+    },
+    minimalTag: {
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 12,
+        borderWidth: 1,
+    },
+    minimalTagText: {
+        fontSize: 12,
+        fontFamily: FONTS.body.semiBold,
+        textTransform: 'uppercase',
+    },
+    // New Loading Styles
+    loadingOrbContainer: {
+        marginBottom: 16,
+    },
+    loadingOrbOuter: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: 'rgba(167, 139, 250, 0.15)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    loadingOrbInner: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#A78BFA',
+        shadowColor: '#A78BFA',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.8,
+        shadowRadius: 16,
+    },
+    deleteButton: {
+        backgroundColor: 'rgba(255, 107, 107, 0.1)',
+        borderColor: 'rgba(255, 107, 107, 0.2)',
     },
 });

@@ -42,6 +42,8 @@ export const syncUser = mutation({
 export const updateProfile = mutation({
     args: {
         userId: v.string(),
+        age: v.optional(v.number()),
+        sex: v.optional(v.string()),
         dreamFrequency: v.optional(v.string()),
         primaryGoal: v.optional(v.string()),
         marketingVibe: v.optional(v.string()),
@@ -55,6 +57,8 @@ export const updateProfile = mutation({
         if (!user) throw new Error("User not found");
 
         await ctx.db.patch(user._id, {
+            age: args.age ?? user.age,
+            sex: args.sex ?? user.sex,
             dreamFrequency: args.dreamFrequency ?? user.dreamFrequency,
             primaryGoal: args.primaryGoal ?? user.primaryGoal,
             marketingVibe: args.marketingVibe ?? user.marketingVibe,

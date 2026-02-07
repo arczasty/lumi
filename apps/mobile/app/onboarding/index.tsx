@@ -55,7 +55,7 @@ export default function WelcomeScreen() {
                             style={styles.bodySection}
                         >
                             <Text style={styles.bodyText} numberOfLines={IS_SMALL_SCREEN ? 5 : undefined}>
-                                Lumi is the quiet place where you can finally listen.{"\n\n"}
+                                Lumi is the quiet place where you can finally listen.
                                 Think of this not as a tracker, but as a digital sanctuary - a safe, private space to offload the weight of your dreams, untangle the emotions of the day, and discover what your mind is trying to tell you when the lights go out.
                             </Text>
                         </MotiView>
